@@ -13,6 +13,16 @@ test('256K/128K: policy threshold is 85%, output and summary budgets stay indepe
   assert.equal(config.basic.maxTokens, 65536);
   assert.deepEqual(input, before);
 });
+test('ratio-only 90% pressure leaves the ratio tail reserve without double-subtracting the output cap', () => {
+  const config = resolveConfig({ thresholdRatio: .9, outputReserveCap: 0, headroomTokens: 0, pruneToolResults: false });
+  for (const window of [32768, 131072, 262144, 1000000]) {
+    const budget = resolveBudget(config.defaults, window, 131072);
+    assert.equal(budget.thresholdTokens, Math.floor(window * .9));
+    assert.equal(budget.requestedOutputTokens, 131072);
+  }
+  assert.equal(config.defaults.pruneToolResults, false);
+  assert.equal(resolveConfig().defaults.pruneToolResults, true);
+});
 test('stock arithmetic is expressible without changing requests', () => {
   const p = resolveConfig({ outputReserveCap: 131072, headroomTokens: 65536, thresholdRatio: .8 }).defaults;
   assert.equal(resolveBudget(p, 262144, 131072).thresholdTokens, 65536);
@@ -51,6 +61,8 @@ for (const [name, source] of Object.entries({
   cooldown: { retryCooldownMs: 1000, maxRetryCooldownMs: 999 },
   emptyRoute: { modelPolicies: [{ provider: '', model: 'm' }] },
   dryRun: { dryRun: 'yes' },
+  pruneToolResults: { pruneToolResults: 'false' },
+  routePruneToolResults: { modelPolicies: [{ ...target, pruneToolResults: 0 }] },
   basic: { basic: [] },
 })) test(`invalid configuration: ${name}`, () => assert.throws(() => resolveConfig(source)));
 

@@ -1,12 +1,13 @@
 // Independent policy arithmetic. No host state or request is mutated here.
 const POLICY_KEYS = [
   'mode', 'thresholdRatio', 'outputReserveCap', 'headroomTokens', 'retainRatio',
-  'retainTokens', 'minFreshTokens', 'retryAfterTokens', 'retryCooldownMs', 'maxRetryCooldownMs',
+  'retainTokens', 'minFreshTokens', 'retryAfterTokens', 'retryCooldownMs', 'maxRetryCooldownMs', 'pruneToolResults',
 ];
 const TOP_KEYS = new Set([...POLICY_KEYS, 'modelPolicies', 'basic', 'dryRun']);
 const ROUTE_KEYS = new Set([...POLICY_KEYS, 'provider', 'model']);
 export const DEFAULTS = Object.freeze({
   mode: 'policy',
+  pruneToolResults: true,
   thresholdRatio: 0.85,
   outputReserveCap: 20000,
   headroomTokens: 13000,
@@ -33,6 +34,9 @@ function integer(value, key, min = 0) {
   if (!Number.isSafeInteger(value) || value < min) throw new TypeError(`${key} must be a safe integer >= ${min}`);
 }
 function validate(policy, label) {
+  if (policy.pruneToolResults !== undefined && typeof policy.pruneToolResults !== 'boolean') {
+    throw new TypeError(`${label}.pruneToolResults must be boolean`);
+  }
   if (policy.mode !== undefined && !['policy', 'stock'].includes(policy.mode)) {
     throw new TypeError(`${label}.mode must be policy or stock`);
   }

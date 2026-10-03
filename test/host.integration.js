@@ -6,6 +6,7 @@ import { Context, Service } from '@deepseek-ai/cordis';
 import { Session } from '@deepseek-ai/dsh-session';
 import TokenMeter from '@deepseek-ai/dsh-token-meter';
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
+import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner';
 import { toolPairingBalancedBefore, toolPairingBalancedAfter } from '@deepseek-ai/dsh-compaction';
 import Engine from '../src/index.js';
 import Preset from '../src/preset.js';
@@ -95,6 +96,43 @@ test('real summary-shrink failure closes the bracket and suppresses repeated cal
   assert.deepEqual(f.session.surface.nodes.slice(0, before.length), before);
   assert.equal(events(f.session, 'compaction/summary').length, 0);
   assert.equal(events(f.session, 'compaction/start').length, events(f.session, 'compaction/end').length);
+});
+
+test('real tool pruning reduces pressure without summary markers or model calls, preserving original log', async () => {
+  const f = context();
+  new ToolResultPruner(f.ctx);
+  const s = new Session('synthetic-pruning-only'); f.agent.session = s;
+  s.append('turn/start', { turn: 1 });
+  s.append('user/message', { role: 'user', content: [{ type: 'text', text: 'h'.repeat(600000) }] }, { surfaceOp: 'append' });
+  s.append('request/header', { header: f.session.requestHeader(), reason: 'synthetic' });
+  s.append('step/start', { turn: 1, step: 1 });
+  const call = { type: 'tool-call', id: 'large-tool', name: 'read', arguments: '{}' };
+  s.append('assistant/message', { turn: 1, step: 1, message: { role: 'assistant', content: [call] },
+    stream: [{ type: 'chunk', time: 0, chunk: { type: 'block-end', index: 0, block: call } },
+      { type: 'chunk', time: 1, chunk: { type: 'finish', reason: { kind: 'tool-calls' } } }] }, { surfaceOp: 'append' });
+  const originalText = 'a'.repeat(300000);
+  const original = s.append('tool/result', { turn: 1, step: 1, message: {
+    role: 'tool', source: { kind: 'tool', callId: 'large-tool' }, toolCallId: 'large-tool',
+    content: [{ type: 'text', text: originalText }] } }, { surfaceOp: 'append' });
+  s.append('step/end', { turn: 1, step: 1 });
+  const before = f.meter.measure(s).totalTokens;
+  assert(before >= 222822);
+  assert.equal(await f.engine.compactIfNeeded(f.agent, 'pressure', f.signal), null);
+  const after = f.meter.measure(s).totalTokens;
+  assert(after < 222822); assert(after < before);
+  assert.equal(f.engine.status(s).reason, 'pruning-sufficient');
+  assert.equal(f.state.requests.length, 0);
+  assert.equal(events(s, 'compaction/prune').length, 1);
+  for (const type of ['compaction/start', 'compaction/summary', 'compaction/end']) assert.equal(events(s, type).length, 0);
+  assert.equal(s.eventAt(original.seq).data.message.content[0].text, originalText);
+  assert(!s.surface.nodes.includes(original.seq));
+  const replacement = events(s, 'tool/result').at(-1);
+  assert.deepEqual(replacement.sourceEventSeqs, [original.seq]);
+  assert.match(replacement.data.message.content[0].text, /tool result middle pruned/);
+  assert(toolPairingBalancedAfter(s, replacement.seq));
+  await f.engine.compactIfNeeded(f.agent, 'pressure', f.signal);
+  assert.equal(events(s, 'compaction/prune').length, 1);
+  assert.equal(f.state.requests.length, 0);
 });
 
 test('real max-token termination is not accepted as a checkpoint', async () => {

@@ -120,7 +120,7 @@ export function createPolicyEngine({ BasicCompactionEngine, toolPairingBalancedB
         return null;
       }
       if (hasActiveCompaction(session)) { record('compaction-busy'); return null; }
-      if (!this.policyConfig.dryRun) {
+      if (!this.policyConfig.dryRun && policy.pruneToolResults) {
         this.ctx.get('toolResultPruner')?.pruneSession(session);
         signal?.throwIfAborted();
         measurement = meter.measure(session);

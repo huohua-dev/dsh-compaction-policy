@@ -96,6 +96,16 @@ test('pruner runs only above the threshold and outside dry-run; remeasurement ca
   const count = dry.session.seq; await run(dry); assert.equal(dry.session.seq, count);
   assert.equal(dry.engine.status(dry.session).reason, 'dry-run');
 });
+test('summary-first pressure never prunes tools and still delegates real overflow', async () => {
+  const f = fixture({ pruneToolResults: false, thresholdRatio: .9, outputReserveCap: 0, headroomTokens: 0 });
+  f.state.toolResultPruner = { pruneSession() { assert.fail('summary-first pressure must not prune'); } };
+  f.session.forcedPressure = 235928;
+  await run(f); assert.equal(f.state.calls, 0);
+  f.session.forcedPressure = 235929;
+  await run(f); assert.equal(f.state.calls, 1);
+  assert.equal(f.engine.status(f.session).thresholdTokens, 235929);
+  await run(f, 'context-overflow'); assert.deepEqual(f.state.stock, ['context-overflow']);
+});
 test('an active durable lock prevents pruning and model calls', async () => {
   const f = fixture(); f.session.log('compaction/start');
   f.state.toolResultPruner = { pruneSession() { assert.fail('must not mutate active compaction'); } };

@@ -9,8 +9,9 @@ if (version !== '0.2.0-rc.2') {
   throw new Error(`dsh-compaction-policy supports DSH 0.2.0-rc.2; found ${version}. Re-test before upgrading.`);
 }
 
-const fields = () => ({
+export const policyFields = () => ({
   mode: z.union(['policy', 'stock']),
+  pruneToolResults: z.boolean(),
   thresholdRatio: z.number(),
   outputReserveCap: z.number().step(1).min(0),
   headroomTokens: z.number().step(1).min(0),
@@ -25,8 +26,8 @@ const PolicyCompactionEngine = createPolicyEngine({
   BasicCompactionEngine, toolPairingBalancedBefore, toolPairingBalancedAfter,
 });
 PolicyCompactionEngine.Config = z.object({
-  ...fields(),
-  modelPolicies: z.array(z.object({ provider: z.string().required(), model: z.string().required(), ...fields() })),
+  ...policyFields(),
+  modelPolicies: z.array(z.object({ provider: z.string().required(), model: z.string().required(), ...policyFields() })),
   basic: BasicCompactionEngine.Config,
   dryRun: z.boolean(),
 });
