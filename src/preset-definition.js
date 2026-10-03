@@ -1,3 +1,19 @@
+/** Historical v0.1 identity, using STOCK Basic so the global adapter can apply.
+ * It is a real definition (not a resolve alias): children and restored sessions
+ * keep their logged identity. The legacy plugin hides it only from the roster.
+ */
+export function createLegacyDefinition(entries) {
+  const definition = createPresetDefinition(entries);
+  const backend = definition.plugins.find(row => row.id === 'compaction').config
+    .find(row => row.id === 'compaction-policy-engine');
+  backend.id = 'compaction-basic';
+  backend.name = '@deepseek-ai/dsh-compaction-basic';
+  backend.config = backend.config.basic;
+  definition.name = 'Legacy compaction-policy (compatibility)';
+  definition.description = 'Historical v0.1 session identity; use an existing normal preset for new sessions.';
+  return definition;
+}
+
 /** Transform the host's shipped standard in memory. No filesystem writes,
  * copied roster, registry-default override, or edits to the source preset.
  */

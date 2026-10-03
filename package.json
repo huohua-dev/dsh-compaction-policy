@@ -1,7 +1,7 @@
 {
   "name": "dsh-compaction-policy",
-  "version": "0.1.0",
-  "description": "A thin DeepSeek Harness compaction policy: capped output reservation, useful-range selection, and no-progress retry guards.",
+  "version": "0.2.0",
+  "description": "Global 90% native compaction for DeepSeek Harness: summary-first pressure, reversible integration, and legacy-session compatibility.",
   "type": "module",
   "license": "MIT",
   "author": "huohua-dev",
@@ -16,6 +16,8 @@
     ".": "./src/index.js",
     "./policy": "./src/policy.js",
     "./preset": "./src/preset.js",
+    "./global": "./src/global.js",
+    "./legacy": "./src/legacy.js",
     "./package.json": "./package.json"
   },
   "files": ["src", "scripts", "test", "cordis.patch.yml", "README.md", "README.zh-CN.md", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", "NOTICE.md", "LICENSE"],
@@ -26,7 +28,7 @@
     "@deepseek-ai/dsh-compaction": "0.2.0-rc.2",
     "@deepseek-ai/dsh-web-app": "0.2.0-rc.2",
     "@deepseek-ai/dsh-agent-preset-registry": "0.2.0-rc.2",
-    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/cordis": "4.0.4",
     "@deepseek-ai/cordis-plugin-loader": "~1.0.5",
     "@deepseek-ai/cordis-plugin-include": "~1.0.9",
     "@deepseek-ai/schemastery": "~3.18.4",

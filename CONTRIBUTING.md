@@ -35,9 +35,10 @@ If a host is missing, the command fails with guidance; it does not download one 
 
 2026-10-03, DSH 0.2.0-rc.2, Electron Node 24.18.1 and standalone Node 24.21.0:
 
-- 54 dependency-free tests passed, including 150 generated tool-trace cases.
-- 12 real-host component integration tests passed, including 12 post-stream cancellation timings.
-- Core tests cover actual checkpoint framing, source provenance, strict shrink rejection, max-token finish, ABORTED finish, manual flush/correlation, overflow generation gating and retry bounds, parallel tools and an unfinished newest step, realm-facing service identity, and opt-in preset registration/disposal.
+- Dependency-free tests cover budgets, generated tool traces, retry guards, legacy composition and roster-filter ownership.
+- Real-host component tests cover checkpoint framing, source provenance, strict shrink rejection, max-token/ABORTED finish, manual/overflow recovery, 12 late-cancellation timings, actual Cordis global-plugin lifecycle, independent roots, method conflicts and draining disposal.
+- Registry/Loader tests cover hidden roster versus same-ID resolution, mount/child identity, locked selection, default visibility, retired generations and canonical v4 cold replay into an official Basic compaction group with the global policy.
+- Bundle tests check both actual exported default entrypoints, so implementation-only commits cannot masquerade as a wired install. See test output for the current counts.
 - No actual GUI plugin installation, real-model long-run acceptance, latency benchmark or summary-quality evaluation yet.
 
 ## Architecture
@@ -48,7 +49,11 @@ If a host is missing, the command fails with guidance; it does not download one 
 - `src/engine.js`: thin Basic subclass; official region/manual/overflow transactions are reused.
 - `src/index.js`: host imports, exact compatibility gate and schema.
 - `src/preset-definition.js`: pure transformation of the host's shipped standard.
-- `src/preset.js`: read the exported host YAML with its own expression schema and register a new preset.
+- `src/global-adapter.js` / `src/global.js`: pinned original-method bridge, per-runtime ownership and global plugin lifecycle.
+- `src/legacy.js` / `src/legacy-list.js`: register the historical identity with stock Basic, hide only its healthy nondefault roster row, preserve all resolution/mount semantics.
+- `src/preset.js`: advanced explicit v0.1 preset export, no longer loaded by the default bundle.
+
+Global integration and roster filtering are compatibility adapters, not public stable replacement APIs. Do not broaden host ranges or refresh method fingerprints without reading and exercising the corresponding implementations. Never overwrite an unrelated method wrapper on disposal. Keep logs, debugging snapshots and intermediate design documents out of commits; use ignored `.cache/` for local experiments.
 
 Do not patch request headers, capacities, token prices or global fetch to change the pressure formula. Do not add another summarizer or provider to this project. Preserve tool pairs and the newest unit. Do not place transcript text in diagnostics. Treat pressure and confirmed overflow as different policies.
 

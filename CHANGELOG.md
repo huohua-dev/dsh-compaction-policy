@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 — 2026-10-03
+
+- Make the default bundle load the exported global adapter; installation no longer requires selecting a separate preset.
+- Trigger proactive compaction at 90% of the resolved context window by default, without double-subtracting the main output cap or lowering reasoning/output settings.
+- Use native summary transactions rather than first pruning tool-result middles on the new proactive path; keep native manual and confirmed-overflow recovery.
+- Pin host versions and captured-method fingerprints; preserve original engine/listener identity, isolate runtime roots, drain in-flight work and restore methods safely on disposal.
+- Preserve the historical `compaction-policy` identity with a shipped-standard/official-Basic compatibility declaration hidden from normal selection. A legacy default or broken declaration stays visible for diagnosis. No session logs or identities are rewritten.
+- Retain advanced v0.1 backend/preset exports, but remove their selectable preset from the default bundle. Existing live v0.1 generations require natural restoration or restart; obsolete profile overrides must be removed explicitly.
+- Add release-assembly checks and actual registry/Loader tests for cold replay, mounted scopes, child identity, hidden rosters, default safety and restoration.
+
+Experimental: real-host tests use synthetic sessions and a scripted LLM; they do not establish live GUI rendering or real-model summary quality. Desktop installations are managed through Desktop, not the standalone CLI.
+
 ## 0.1.0 — 2026-10-03
 
 Initial experimental release, pinned to DSH 0.2.0-rc.2.

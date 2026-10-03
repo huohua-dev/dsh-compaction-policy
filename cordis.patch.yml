@@ -1,9 +1,9 @@
-# Installation adds a separate, opt-in preset. It does not change the default,
-# the stock backend, model routes, or existing sessions.
+# Global pressure policy on original official Basic engines; no preset selection.
+# The hidden legacy identity only preserves restoration of v0.1 conversations.
 - insert:
-    - id: compaction-policy-preset
-      name: dsh-compaction-policy/preset
-      config:
-        id: compaction-policy
-        name: Compaction Policy (standard)
-        policy: {}
+    - id: compaction-policy-global
+      name: dsh-compaction-policy/global
+      config: {}
+    - id: compaction-policy-legacy
+      name: dsh-compaction-policy/legacy
+      config: {}

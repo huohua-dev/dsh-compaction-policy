@@ -5,7 +5,9 @@ A DSH host plugin runs with the privileges of its host process. Model-facing too
 This package:
 
 - reads the host's shipped standard preset through its exported package path;
-- registers one separate, opt-in preset and a backend-local status/reset command;
+- applies a version- and method-fingerprint-pinned, reversible pressure-method adapter to existing official Basic engines in its runtime;
+- registers a hidden same-ID legacy compatibility composition and a global status/reset command;
+- filters only the owning registry instance's selection roster; it does not translate or rewrite session identities;
 - uses the existing LLM and session services for ordinary official compaction;
 - keeps failure metadata and content hashes in session-keyed memory;
 - does not read credentials itself, wrap HTTP, add telemetry, start subprocesses, download a model, or create an auxiliary transcript store;

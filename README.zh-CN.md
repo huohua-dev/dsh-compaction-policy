@@ -1,160 +1,165 @@
 # dsh-compaction-policy
 
-[English](README.md) · [开发与宿主测试](CONTRIBUTING.md) · [安全说明](SECURITY.md)
+[English](<README.md>) · [开发与宿主测试](<CONTRIBUTING.md>) · [安全说明](<SECURITY.md>)
 
-**一个很薄、主动选择启用的 DeepSeek Harness 压缩策略插件。** 保留官方模型摘要、checkpoint 事务、工具配对、token meter、`/compact` 与上下文溢出恢复；只调整主动压缩的预算、范围和无进展重试。
+**DeepSeek Harness 的实验性全局压缩策略。** 保留官方 Basic 摘要、checkpoint 记录、工具配对、token meter、UI 事件协议、原生 `/compact` 和溢出恢复；只调整主动压缩预算、范围与无进展重试，**不必切换特殊预设**。
 
-**实验性 v0.1.0，仅支持 DSH `0.2.0-rc.2`。** 已用真实宿主核心组件、合成内存会话和脚本化假模型测试；**尚未完成实际 GUI 安装会话及真实模型长任务验收**。不宣称无损压缩，不扩大模型窗口。
+**实验性 v0.2.0。** 精确兼容 DSH Basic/compaction **`0.2.0-rc.2`**、Cordis **`4.0.4`**，并校验五个 Basic 方法的哈希。真实宿主组件上的合成会话、脚本化模型响应测试已通过，**不代表已验证实际 GUI 行为，也不证明原生 Windows／真实模型会话的摘要质量**。不宣称无损摘要或扩大模型窗口。
 
-## 解决什么
+## 安装会改变什么
 
-官方 Basic 的主动触发点为：
-
-```text
-floor(min(窗口 × 0.8, 窗口 − 主请求最大输出 − 65536))
-```
-
-因此 262144 窗口、131072 输出上限，实际到 **65536（25%）** 就触发。另一个问题是巨大早期思考被整块保留后，只剩前面的小检查点可压；模型写出的摘要不比它短，下一工具步骤又重复请求。
-
-本插件将“最大允许输出”与“何时压缩的预留量”分开：
-
-```text
-预留 = min(主请求输出上限, outputReserveCap)
-触发点 = floor(min(窗口 × thresholdRatio, 窗口 − 预留 − headroomTokens))
-近期保留目标 = floor((窗口 − 预留) × retainRatio)
-```
-
-默认 `outputReserveCap=20000`、`headroomTokens=13000`、`thresholdRatio=0.85`，上述模型对应 **222822 token（85%）**。这是计算结果，不是真实模型性能测试。
-
-**不会改写主请求的 maxTokens、思考档位、provider、model 或 token 计量。** 默认也不关闭摘要思考，不换摘要模型。
-
-> **预留不是容量保证。** 约22万输入之后，不可能再完整输出13万并同时塞进26万窗口。实际发送仍需要适配器/服务端根据剩余容量处理；严格校验 `input + max_tokens` 的服务可能更早报超窗，此时仍走官方恢复。本插件不是 HTTP 预算裁剪代理。
-
-## 行为
-
-- 策略本身不截断单条消息、思考块或工具结果；已有官方工具结果剪枝器仍按原规则工作，旧内容仍由官方模型生成语义摘要。
-- 近期保留是**软目标**，不是硬下限：可向后扩大待压前缀，将老的大消息纳入，而不是只压它前面的短摘要。最新完整工具单元始终保留，过大时允许超过目标。
-- 待压范围至少有2048个**非旧检查点**的token权重才请求摘要。
-- 每个 pressure 步骤最多一次摘要事务，不立即重压自己刚生成的摘要。
-- 失败后按60秒、120秒、240秒……退避，上限10分钟；到期也只在下一次压力检查时尝试一次。候选内容实质变化可以提前重试，单纯追加未选中的尾部不会清除退避。
-- 手动 `/compact` 和服务端已确认的 context overflow **绕过主动退避**，继续使用官方安全边界、重试上限及实际进展校验。
-- `/compaction-policy status` 查看真实阈值与跳过原因；`reset` 清当前会话退避。不往模型上下文塞额外状态提示。
-
-没有额外模型服务、Python代理、全局fetch包装、ASAR补丁或另一套DSH内核。
-
-## 安装并启用
-
-目前仅通过 GitHub 分发，**尚未发布 npm 包**：
-
-```sh
-dsh plugin --profile desktop add github:huohua-dev/dsh-compaction-policy#v0.1.0
-```
-
-把 `desktop` 换成实际使用的profile，例如 `web`。初次安装后重新加载/重启**现有** DSH：
-
-1. 新开一个会话。
-2. 第一条消息前选择 **Compaction Policy (standard)** 预设。
-3. 完成一次模型步骤后，运行 `/compaction-policy status` 验证实际策略。
-
-**安装只新增一个可选预设，不修改默认预设、原standard、模型路由或已有会话。** 不要将“包安装成功”当作“当前会话已使用新引擎”。
-
-预设在内存中读取**当前宿主随包的standard**，只替换compaction组里的backend，保留 `/compact` 和pruner；没有复制一整份会过时的工具列表。它不会继承用户另外编辑的standard工具表；这类需求请在自己的preset中挂backend。版本或结构不符合预期时明确报错。
-
-## 只对指定模型启用
-
-在当前profile的 `cordis.patch.yml` 中覆盖插件的预设条目：
+默认 bundle 安装两个**根插件**：
 
 ```yaml
-- id: compaction-policy-preset
+- id: compaction-policy-global
+  name: dsh-compaction-policy/global
+  config: {}
+- id: compaction-policy-legacy
+  name: dsh-compaction-policy/legacy
+  config: {}
+```
+
+- **全局策略：**作用于**同一 Cordis runtime** 内符合条件的现有及未来官方 Basic 实例，包括普通预设。不新增压缩引擎或自动压缩监听器，也不切换预设。
+- **旧会话兼容：**保留历史 `compaction-policy` 预设身份，让 v0.1 会话仍可恢复，但使用原生 Basic。正常情况下该行不出现在选择列表中；新版默认 bundle **不新增可见、可选的特殊预设**。
+- **当前默认 provider 和预设保持不变。** 不改主请求输出上限、思考档位、provider/model 选择或 token 计量。
+
+只接管精确钉住的官方 Basic 实现；跳过自定义 backend、子类及带有实例方法覆盖的引擎。没有 compaction 的预设（包括不带压缩的 minimal 组合）不受影响。“全局”不表示机器上所有 DSH 进程或 profile。
+
+## 默认策略：90%，不重复扣余量
+
+模型允许较大输出时，原生 Basic 可能很早触发：
+
+```text
+原生触发点 = floor(min(W × 0.8, W − 主请求输出上限 − 65536))
+
+主动预留 = min(主请求输出上限, outputReserveCap)
+策略触发点 = floor(min(W × thresholdRatio, W − 主动预留 − headroomTokens))
+近期保留目标 = floor((W − 主动预留) × retainRatio)
+```
+
+默认 **`thresholdRatio: 0.9`、`outputReserveCap: 0`、`headroomTokens: 0`**，主动触发点就是 **`floor(W × 0.9)`**。剩余 10% 已是安全余量，**不会再扣一次**。262,144-token 窗口、131,072-token 输出上限对应的触发点从 65,536 变为 **235,929 token**。这是算术结果，不是性能实测。
+
+**`pruneToolResults: false` 仅约束新策略的主动 pressure 路径。** 该路径不先剪工具结果，旧内容交给 Basic 摘要；它不会禁用原生 pruner 服务，也不改变 stock 模式、手动或已确认溢出的行为。
+
+> **输出上限不等于可用空间保证。** 256K 窗口装入 90% 的输入后，不可能同时容纳完整 128K 输出。适配器／服务端仍须处理实际剩余容量；严格校验 `input + max_tokens` 的服务可能更早拒绝，届时仍走原生溢出恢复。本插件不是 HTTP 输出预算裁剪器。
+
+### 范围与失败保护
+
+- 近期保留为 **16% 的软目标**。完整消息和工具调用／结果单元保持原子性；最新单元始终原样保留，过大时允许超过目标。
+- 可以将较早的大消息纳入摘要，避免反复只压它前面的短 checkpoint。system 节点受保护；历史中途出现的 system 节点是范围屏障。
+- 所选范围至少包含 **2,048 token 的非旧检查点内容**，才发起主动摘要。
+- 每个 pressure 步骤最多**一次摘要事务**，不立即再次压缩刚生成的 checkpoint。
+- 失败后按 **60 秒、120 秒、240 秒……最多 10 分钟**退避。到期只允许下一次压力检查探测一次，不会后台调用模型。候选内容实质变化可提前重试；追加无关尾部不会清除退避。
+- 保留原生手动及已确认溢出路径的重试上限、事务结束和实际进展校验；它们绕过主动策略的失败保护。
+
+## 安装
+
+通过 GitHub 分发，尚未发布 npm 包。安装 **v0.2.0 发布标签**：
+
+```text
+github:huohua-dev/dsh-compaction-policy#v0.2.0
+```
+
+### Desktop 管理的 profile
+
+**必须通过 Desktop 插件管理器 UI** 添加上述 GitHub 来源，按提示重新加载／重启现有 Desktop 宿主。CLI 会拒绝修改 Desktop 管理的插件；不要用 `--profile desktop` 绕过。
+
+加载后继续使用现有普通预设，不需要选择特殊预设。在会话中运行 `/compaction-policy-global status` 查看覆盖情况和实际策略。安装不会替你更换默认 provider 或预设。
+
+### 仅限非 Electron 管理的 web profile
+
+如果 web profile **不由 Electron／Desktop 管理**，才使用：
+
+```sh
+dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.0
+```
+
+然后重新加载／重启该现有宿主。这个 CLI 示例不是 Desktop 的替代安装方式。
+
+## 配置全局条目
+
+在用户 profile 覆盖中修改 **`compaction-policy-global`**，策略字段放在 **`config.policy`** 下。row config 是整项替换，不是深合并；需要保留的自定义值必须重述。修改后重新加载 profile。
+
+例如：其余路由保持原生，仅在一个精确路由启用新策略：
+
+```yaml
+- id: compaction-policy-global
   config:
-    id: compaction-policy
-    name: Compaction Policy (standard)
     policy:
       mode: stock
       modelPolicies:
         - provider: your-local-provider
           model: your-model-id
           mode: policy
-          thresholdRatio: 0.85
-          outputReserveCap: 20000
-          headroomTokens: 13000
+          thresholdRatio: 0.9
+          outputReserveCap: 0
+          headroomTokens: 0
+          pruneToolResults: false
 ```
 
-`provider` 和 `model` 精确匹配、区分大小写；其他路由委托官方Basic。原standard预设始终不变。DSH的row config是**整项替换**，不是深合并，要重述需要保留的值。修改后重新加载profile并新开测试会话；首版不承诺已有运行中preset实例热更新。
+provider/model 精确匹配、区分大小写。不使用这类按路由启用的配置时，默认策略作用于所有符合条件的 Basic 实例。
 
-## 配置表
-
-| 字段 | 默认 | 说明 |
+| 策略字段 | 默认值 | 说明 |
 |---|---:|---|
-| `mode` | `policy` | `policy`新策略；`stock`主动压缩委托官方 |
-| `thresholdRatio` | 0.85 | 窗口比例；仍受预留/余量分支限制 |
-| `outputReserveCap` | 20000 | 主动压缩预留封顶，不是API输出上限 |
-| `headroomTokens` | 13000 | 主动策略额外余量 |
-| `retainRatio` | 0.16 | `(窗口−封顶预留)`的近期尾部软目标比例 |
-| `retainTokens` | 不设 | 尾部绝对软目标，与retainRatio互斥 |
-| `minFreshTokens` | 2048 | 可压范围里非旧检查点内容的最低权重 |
-| `retryAfterTokens` | 4096 | 冷却未到期时允许重试所需的候选变化量 |
-| `retryCooldownMs` | 60000 | 首次失败冷却 |
-| `maxRetryCooldownMs` | 600000 | 指数退避上限，不能小于首次值 |
-| `modelPolicies` | `[]` | 精确provider/model覆盖 |
-| `dryRun` | false | 新主动策略只观测，不剪枝/摘要；**stock路由、手动、overflow仍正常运行** |
-| `basic` | `{}` | 独立的官方Basic配置，负责摘要、手动/overflow及stock路由 |
+| `mode` | `policy` | `policy` 使用新主动策略；`stock` 委托 Basic。 |
+| `thresholdRatio` | `0.9` | 主动触发窗口比例，仍受剩余容量分支约束。 |
+| `outputReserveCap` | `0` | 主动输出预留封顶，**不是** API 输出上限。 |
+| `headroomTokens` | `0` | 额外主动扣减；默认 10% 余量已包含在比例中。 |
+| `pruneToolResults` | `false` | 新主动路径是否先调用原生工具结果剪枝器。 |
+| `retainRatio` | `0.16` | `(W − 主动预留)` 的近期尾部软目标比例。 |
+| `retainTokens` | 不设 | 绝对软目标，与 `retainRatio` 互斥。 |
+| `minFreshTokens` | `2048` | 所选非旧检查点内容的最低 token 权重。 |
+| `retryAfterTokens` | `4096` | 冷却到期前允许重试所需的候选变化量。 |
+| `retryCooldownMs` | `60000` | 首次失败冷却时间。 |
+| `maxRetryCooldownMs` | `600000` | 指数退避上限，不能小于首次冷却。 |
+| `modelPolicies` | `[]` | 精确 `{ provider, model, ...policyFields }` 覆盖。 |
+| `dryRun` | `false` | 新主动路径只观测、不剪枝或摘要；stock、手动和溢出路径仍正常运行。 |
 
-除 `modelPolicies`、`basic`、`dryRun` 外的策略字段均可按路由覆盖。未知键或非法值拒绝；窗口太小需相应减小预留/余量/尾部目标，不能虚报窗口。无有效主动预算时报告 `invalid-pressure-budget`，不会关闭overflow恢复。
+除 `modelPolicies`、`dryRun` 外的策略字段均可按路由覆盖。未知键或非法值被拒绝；主动预算无效时给出诊断，不虚构更大的模型窗口。
 
-### 三种预算互相独立
+### 主输出与摘要配置仍然独立
 
-1. 主输出上限：在现有模型配置里，插件不改。
-2. 主动压缩预留：`policy.outputReserveCap`。
-3. 摘要上限：`policy.basic.maxTokens`。
+全局条目**没有 `basic` 字段**，`config.policy` 下也没有。每个引擎保留其**原有 Basic 配置**：摘要 provider/model、摘要输出预算、思考行为、自动启用状态，以及 stock／手动／溢出设置。需要修改时，请在该引擎已有的 Basic 行上配置，不要放进全局插件。
 
-Basic默认摘要上限 **65536** 保持不变；策略headroom设13000不会偷偷把摘要上限降到13000。如果希望另设摘要模型和预算，可明确配置：
+使用上游默认值时，**65,536-token 摘要上限保持不变**。策略 headroom 为 `0` 不会把摘要上限改成零。主请求输出上限、思考配置同样不变。Basic 的 `auto: false` 仍按原生语义关闭自动 pressure 和 overflow 监听，手动 `/compact` 保留。
 
-```yaml
-    policy:
-      basic:
-        summarizationProvider: your-summary-provider
-        summarizationModel: your-summary-model
-        maxTokens: 16384
-```
-
-这只是显式配置示例，不是要求减少摘要预算。provider/model必须成对。`basic.compactionRetries`仍管stock行为，新主动路径固定每步一事务；`basic.maxOverflowRetries`仍管overflow。`basic.auto: false`依官方语义会同时关闭自动pressure和overflow监听，手动命令保留。
-
-## 自定义预设和 headless
-
-在**会话自己的compaction隔离组**内，用独立id的 `dsh-compaction-policy` 替代 `@deepseek-ai/dsh-compaction-basic`，保留 `command-compact` 和 `tool-result-pruner`。同一组只能有一个backend，不能叠装两个。完整片段见[英文说明](README.md#custom-presets--headless-compositions)。
-
-顶层profile patch的同名id不会自动穿透另一个preset内部。无preset registry的headless应直接挂根backend，不挂需要web registry的 `/preset` 装配入口。
-
-## 状态和回退
+## 状态与恢复
 
 ```text
-/compaction-policy status
-/compaction-policy reset
+/compaction-policy-global [status|reset]
 /compact
 ```
 
-`reset`只清理当前会话失败退避，不修改模型或历史。压缩有进展但仍高于阈值会记录 `compacted-still-above-threshold`，不会谎报已经低于预算。日志只包含预算、计数、序号和原因，不保存原文。
+`status` 提供覆盖情况与主动策略诊断，不输出会话原文。`reset` 只清理当前会话的主动失败保护，不压缩、不重写历史、不改模型。手动压缩仍使用原生 `/compact`。有缩减但仍超阈值时报告 `compacted-still-above-threshold`，不会谎报已回到预算内。失败状态按 live session 保存在内存，重启后不保留。
 
-卸载前：结束/停止使用本预设的任务；新会话切回standard；若手动设置了默认预设，先改回；删除自己添加的插件覆盖条目或自定义preset引用，再执行：
+卸载运行中的全局策略时，先将其标记为**不活跃**，再等待正在执行的工作完成，安全恢复原方法。不覆盖其他插件的 wrapper：若其他插件已包装被修改的方法，本插件的 wrapper 会**保持惰性，直到可安全恢复或重启**。禁用不会强制重新绑定运行中的 agent。
 
-```sh
-dsh plugin --profile desktop remove dsh-compaction-policy
-```
+## 从 v0.1 升级与旧会话兼容
 
-重载现有host。插件没有另建数据仓库，已经产生的checkpoint是普通DSH事件，卸载后仍可读。但旧session仍记录原preset身份，恢复运行可能需要重装插件，或显式交接到standard新会话；卸载不会偷偷改session身份或恢复全部压缩前原文。
+1. 删除旧的**用户自建覆盖 `id: compaction-policy-preset`**，并检查仍引用旧入口的自定义路由和组合。安装包**不会偷偷修改用户 profile**。
+2. 通过对应的插件管理器加载新版默认 bundle。新聊天选择**已有普通预设**；如果以前把旧预设设成默认，请显式修改默认项。
+3. 还需要恢复 v0.1 日志时，保持 `compaction-policy-legacy` 启用。
 
-## 限制与安全
+兼容插件注册**完全相同的历史 `compaction-policy` id**，基于宿主随包 standard 构建，并使用**原生 Basic**，不是高级策略 backend。经过版本固定、限定作用域、可撤销的选择列表过滤器只隐藏该兼容行，不删除已注册预设。如果当前默认项就是旧 id，或该兼容条目本身损坏，则保留该行，**不会悄悄隐藏当前默认项或加载失败诊断**。旧会话标题仍可能显示历史 `compaction-policy` 身份，这不代表新增了可选预设。
 
-- 不是无损压缩；摘要质量仍由模型决定，大输入＋摘要输出预算也可能超窗。
-- 计量来自宿主，未做精确tokenizer承诺；不篡改token meter。
-- 出现在历史中途的system节点是硬屏障，主动范围不会跨过它；必要时手动处理，而不是偷偷压掉system。
-- 退避按live Session对象保存在内存，重启后不保留；不会设后台计时器或主动唤醒模型。
-- 新策略dry-run不关闭手动/overflow/stock行为；不是完全禁止修改历史的总开关。
-- Host插件与DSH宿主同权限，**模型工具审批不会沙箱化插件代码**；安装前审源码、钉版本。
-- 首版依赖rc.2可动态派发的Basic方法，并在其提交前同步计量点补检查取消；升级必须重新测试，不能只放宽版本范围。
+会话身份、日志和子 agent 保持原样，不重写、不自动迁移。已经运行中的 v0.1 策略实例，需要**自然恢复或重启**才会获得旧身份对应的原生 Basic 组合；不会强制重绑运行中的 agent。
 
-## 验证与开发
+旧的独立 **`dsh-compaction-policy/preset` 导出与根 `dsh-compaction-policy` backend 仍是高级旧版入口**，不是默认安装方式。自主管理的组合仍必须保证 compaction 隔离组内只有一个 backend；全局插件不是替代 backend。Headless 使用**全局入口**需要宿主的 **`commands` 和 `agentPresets` 服务**；缺少这些服务的无预设注册表组合不能原样加载它。
+
+## 禁用或卸载
+
+- 只停用新全局策略、保留旧会话兼容：**仅禁用 `compaction-policy-global`**，保留 `compaction-policy-legacy`；或设置 `config.policy.mode: stock`，并移除仍启用 policy 模式的路由覆盖。
+- 完全卸载前，结束／停止相关任务，新会话选择已有普通预设；若默认仍指向旧 id，请显式修正。删除自己添加的插件覆盖和自定义预设引用。
+- **Desktop：**使用 Desktop 插件管理器 UI 移除 bundle，然后重新加载／重启现有宿主。
+- **仅非 Electron 管理的 web：**执行 `dsh plugin --profile web remove dsh-compaction-policy`，然后重新加载／重启该宿主。
+
+已经提交的原生 checkpoint 卸载后仍可读。**v0.1 旧日志若按原预设身份恢复运行，仍需安装旧会话兼容插件**。没有自动日志迁移、身份重写，也不会把全部压缩前历史重新塞回活动上下文。
+
+## 限制与验证
+
+摘要质量和服务端容量仍取决于模型／上游。计量采用宿主估算；插件不篡改 token 计数，不降低主请求思考，不新增压缩服务，不包装全局 `fetch`，不补丁修改 ASAR，也不另带 DSH 内核。宿主插件拥有宿主权限，**模型工具审批不会沙箱化插件代码**。
+
+版本和五方法哈希固定是安全门槛，不代表向前兼容承诺。升级宿主需要重新审查和测试，不能只放宽版本范围。真实宿主合成测试不能证明实际 UI 或原生 Windows 摘要质量。
 
 ```sh
 npm test
@@ -162,6 +167,8 @@ npm run check
 npm run pack:check
 ```
 
-单测无需安装依赖；真实宿主测试另见[CONTRIBUTING.md](CONTRIBUTING.md)。它使用真实Cordis、Session、TokenMeter和Basic事务、脚本化假LLM，检查realm代理、标准预设、工具配对、溢出恢复以及摘要结束后12个microtask边界的取消。测试不启动服务、不读取真实会话、不发送网络推理。
+合成真实宿主测试见[开发与宿主测试说明](<CONTRIBUTING.md>)；这些检查不等于真实模型验收。
 
-MIT © 2026 huohua-dev。参考与边界见[NOTICE.md](NOTICE.md)。
+## 许可与参考
+
+MIT © 2026 huohua-dev。上游契约及相关工作见 [NOTICE](<NOTICE.md>)。不内置第三方插件实现或 DSH 内核。
