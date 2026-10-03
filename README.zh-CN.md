@@ -4,23 +4,20 @@
 
 **DeepSeek Harness 的实验性全局压缩策略。** 保留官方 Basic 摘要、checkpoint 记录、工具配对、token meter、UI 事件协议、原生 `/compact` 和溢出恢复；只调整主动压缩预算、范围与无进展重试，**不必切换特殊预设**。
 
-**实验性 v0.2.0。** 精确兼容 DSH Basic/compaction **`0.2.0-rc.2`**、Cordis **`4.0.4`**，并校验五个 Basic 方法的哈希。真实宿主组件上的合成会话、脚本化模型响应测试已通过，**不代表已验证实际 GUI 行为，也不证明原生 Windows／真实模型会话的摘要质量**。不宣称无损摘要或扩大模型窗口。
+**实验性 v0.2.1。** 精确兼容 DSH Basic/compaction **`0.2.0-rc.2`**、Cordis **`4.0.4`**，并校验五个 Basic 方法的哈希。真实宿主组件上的合成会话、脚本化模型响应测试已通过，**不代表已验证实际 GUI 行为，也不证明原生 Windows／真实模型会话的摘要质量**。不宣称无损摘要或扩大模型窗口。
 
 ## 安装会改变什么
 
-默认 bundle 安装两个**根插件**：
+默认 bundle 只安装**一个根插件**：
 
 ```yaml
 - id: compaction-policy-global
   name: dsh-compaction-policy/global
   config: {}
-- id: compaction-policy-legacy
-  name: dsh-compaction-policy/legacy
-  config: {}
 ```
 
-- **全局策略：**作用于**同一 Cordis runtime** 内符合条件的现有及未来官方 Basic 实例，包括普通预设。不新增压缩引擎或自动压缩监听器，也不切换预设。
-- **旧会话兼容：**保留历史 `compaction-policy` 预设身份，让 v0.1 会话仍可恢复，但使用原生 Basic。正常情况下该行不出现在选择列表中；新版默认 bundle **不新增可见、可选的特殊预设**。
+- **全局策略：**作用于**同一 Cordis runtime** 内符合条件的现有及未来官方 Basic 实例，包括普通预设。沿用 Basic 的原生 pressure 机制，不新增压缩引擎或自动压缩监听器，也不切换预设。
+- **无特殊预设：**本包不注册任何预设，也不过滤预设注册表。继续使用普通预设即可。
 - **当前默认 provider 和预设保持不变。** 不改主请求输出上限、思考档位、provider/model 选择或 token 计量。
 
 只接管精确钉住的官方 Basic 实现；跳过自定义 backend、子类及带有实例方法覆盖的引擎。没有 compaction 的预设（包括不带压缩的 minimal 组合）不受影响。“全局”不表示机器上所有 DSH 进程或 profile。
@@ -54,15 +51,15 @@
 
 ## 安装
 
-通过 GitHub 分发，尚未发布 npm 包。安装 **v0.2.0 发布标签**：
+通过 GitHub 分发，尚未发布 npm 包。安装 **v0.2.1 发布标签**：
 
 ```text
-github:huohua-dev/dsh-compaction-policy#v0.2.0
+github:huohua-dev/dsh-compaction-policy#v0.2.1
 ```
 
 ### Desktop 管理的 profile
 
-**必须通过 Desktop 插件管理器 UI** 添加上述 GitHub 来源，按提示重新加载／重启现有 Desktop 宿主。CLI 会拒绝修改 Desktop 管理的插件；不要用 `--profile desktop` 绕过。
+**必须通过 Desktop 插件管理器 UI** 添加或更新上述 GitHub 来源，然后**彻底退出并重新启动 Desktop**，确保替换现有宿主进程。升级后仅刷新页面或重新加载 profile 不能替代完整重启：已观察到旧进程导致导入失败，完整重启后消失。CLI 会拒绝修改 Desktop 管理的插件；不要用 `--profile desktop` 绕过。
 
 加载后继续使用现有普通预设，不需要选择特殊预设。在会话中运行 `/compaction-policy-global status` 查看覆盖情况和实际策略。安装不会替你更换默认 provider 或预设。
 
@@ -71,7 +68,7 @@ github:huohua-dev/dsh-compaction-policy#v0.2.0
 如果 web profile **不由 Electron／Desktop 管理**，才使用：
 
 ```sh
-dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.0
+dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.1
 ```
 
 然后重新加载／重启该现有宿主。这个 CLI 示例不是 Desktop 的替代安装方式。
@@ -134,26 +131,27 @@ provider/model 精确匹配、区分大小写。不使用这类按路由启用�
 
 卸载运行中的全局策略时，先将其标记为**不活跃**，再等待正在执行的工作完成，安全恢复原方法。不覆盖其他插件的 wrapper：若其他插件已包装被修改的方法，本插件的 wrapper 会**保持惰性，直到可安全恢复或重启**。禁用不会强制重新绑定运行中的 agent。
 
-## 从 v0.1 升级与旧会话兼容
+## 升级到 v0.2.1
 
-1. 删除旧的**用户自建覆盖 `id: compaction-policy-preset`**，并检查仍引用旧入口的自定义路由和组合。安装包**不会偷偷修改用户 profile**。
-2. 通过对应的插件管理器加载新版默认 bundle。新聊天选择**已有普通预设**；如果以前把旧预设设成默认，请显式修改默认项。
-3. 还需要恢复 v0.1 日志时，保持 `compaction-policy-legacy` 启用。
+旧测试预设 `compaction-policy` 不再注册。新版**不提供旧会话恢复兼容**，之前的测试会话不属于支持的升级目标。本包不会删除或重写会话日志。
 
-兼容插件注册**完全相同的历史 `compaction-policy` id**，基于宿主随包 standard 构建，并使用**原生 Basic**，不是高级策略 backend。经过版本固定、限定作用域、可撤销的选择列表过滤器只隐藏该兼容行，不删除已注册预设。如果当前默认项就是旧 id，或该兼容条目本身损坏，则保留该行，**不会悄悄隐藏当前默认项或加载失败诊断**。旧会话标题仍可能显示历史 `compaction-policy` 身份，这不代表新增了可选预设。
+1. 删除用户 profile 中过时的 **`compaction-policy-legacy` 和 `compaction-policy-preset` 覆盖**，以及指向这些已移除入口的自定义引用。安装包不会偷偷修改用户 profile。
+2. 如果默认项仍指向测试预设，请显式恢复为**已有普通预设**。
+3. 通过 Desktop 插件管理器 UI 更新，然后**彻底退出并重新启动 Desktop**。非 Electron 管理的 web profile 通过其插件管理器更新并重启该宿主。使用普通预设新建会话，运行 `/compaction-policy-global status` 检查。
 
-会话身份、日志和子 agent 保持原样，不重写、不自动迁移。已经运行中的 v0.1 策略实例，需要**自然恢复或重启**才会获得旧身份对应的原生 Basic 组合；不会强制重绑运行中的 agent。
+### 自定义组合
 
-旧的独立 **`dsh-compaction-policy/preset` 导出与根 `dsh-compaction-policy` backend 仍是高级旧版入口**，不是默认安装方式。自主管理的组合仍必须保证 compaction 隔离组内只有一个 backend；全局插件不是替代 backend。Headless 使用**全局入口**需要宿主的 **`commands` 和 `agentPresets` 服务**；缺少这些服务的无预设注册表组合不能原样加载它。
+根 **`dsh-compaction-policy` backend** 与 **`dsh-compaction-policy/global` 入口**继续保留；`/preset` 和 `/legacy` 导出已移除。默认 bundle 只加载全局入口。自定义组合仍须保证 compaction 隔离组内只有一个 backend；全局插件不是替代 backend。Headless 使用全局入口需要宿主的 **`commands` 和 `agentPresets` 服务**；缺少这些服务的组合不能原样加载它。
 
 ## 禁用或卸载
 
-- 只停用新全局策略、保留旧会话兼容：**仅禁用 `compaction-policy-global`**，保留 `compaction-policy-legacy`；或设置 `config.policy.mode: stock`，并移除仍启用 policy 模式的路由覆盖。
-- 完全卸载前，结束／停止相关任务，新会话选择已有普通预设；若默认仍指向旧 id，请显式修正。删除自己添加的插件覆盖和自定义预设引用。
-- **Desktop：**使用 Desktop 插件管理器 UI 移除 bundle，然后重新加载／重启现有宿主。
-- **仅非 Electron 管理的 web：**执行 `dsh plugin --profile web remove dsh-compaction-policy`，然后重新加载／重启该宿主。
+- 停用全局策略：**禁用 `compaction-policy-global`**；或设置 `config.policy.mode: stock`，并移除仍启用 policy 模式的路由覆盖。
+- 完全卸载前，结束／停止相关任务，删除自己添加的插件覆盖及自定义组合引用，并确认默认项为已有普通预设。
+- **Desktop：**使用 Desktop 插件管理器 UI 移除 bundle，然后彻底退出并重新启动 Desktop。
+- **仅非 Electron 管理的 web：**执行 `dsh plugin --profile web remove dsh-compaction-policy`，然后重启该宿主。
+- 卸载后用**普通预设新建会话**，确认能够加载并使用宿主正常的压缩行为。
 
-已经提交的原生 checkpoint 卸载后仍可读。**v0.1 旧日志若按原预设身份恢复运行，仍需安装旧会话兼容插件**。没有自动日志迁移、身份重写，也不会把全部压缩前历史重新塞回活动上下文。
+卸载不会删除或重写会话日志，不迁移测试预设身份，也不会把全部压缩前历史重新塞回活动上下文。
 
 ## 限制与验证
 

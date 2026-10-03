@@ -6,7 +6,7 @@ if (!process.env.DSH_HOST_ROOT) throw new Error('Set DSH_HOST_ROOT to the instal
 const parentURL = pathToFileURL(resolve(process.env.DSH_HOST_ROOT, '__policy_test_resolution__.mjs')).href;
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier.startsWith('@deepseek-ai/') || specifier === 'js-yaml') {
+    if (specifier.startsWith('@deepseek-ai/')) {
       return nextResolve(specifier, { ...context, parentURL });
     }
     return nextResolve(specifier, context);

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-10-03
+
+- Keep exactly one default component: `dsh-compaction-policy/global`.
+- Remove the legacy compatibility component, preset-list filtering, old preset registration code and `/legacy` / `/preset` exports, together with their dedicated dependencies and tests.
+- Do not preserve restoration support for the earlier experimental `compaction-policy` preset identity. Existing logs are not deleted or rewritten; use an existing normal preset for new sessions.
+- Retain the 90% summary-first policy, original native transactions, output/reasoning settings and reversible global integration unchanged.
+- Add a single-component packaging regression check. Desktop upgrades require a full application restart to avoid stale module-export caches.
+
 ## 0.2.0 — 2026-10-03
 
 - Make the default bundle load the exported global adapter; installation no longer requires selecting a separate preset.

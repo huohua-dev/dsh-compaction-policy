@@ -35,25 +35,21 @@ If a host is missing, the command fails with guidance; it does not download one 
 
 2026-10-03, DSH 0.2.0-rc.2, Electron Node 24.18.1 and standalone Node 24.21.0:
 
-- Dependency-free tests cover budgets, generated tool traces, retry guards, legacy composition and roster-filter ownership.
+- Dependency-free tests cover budgets, generated tool traces, retry guards and single-component packaging.
 - Real-host component tests cover checkpoint framing, source provenance, strict shrink rejection, max-token/ABORTED finish, manual/overflow recovery, 12 late-cancellation timings, actual Cordis global-plugin lifecycle, independent roots, method conflicts and draining disposal.
-- Registry/Loader tests cover hidden roster versus same-ID resolution, mount/child identity, locked selection, default visibility, retired generations and canonical v4 cold replay into an official Basic compaction group with the global policy.
-- Bundle tests check both actual exported default entrypoints, so implementation-only commits cannot masquerade as a wired install. See test output for the current counts.
-- No actual GUI plugin installation, real-model long-run acceptance, latency benchmark or summary-quality evaluation yet.
+- Bundle tests require exactly one exported default global entrypoint and reject removed preset/compatibility code and dependencies. See test output for current counts.
+- A Desktop user confirmed v0.2.0 started after a full application restart. This does not establish live-model summary quality, long-run acceptance or GUI rendering of a real compaction.
 
 ## Architecture
 
-- `src/policy.js`: strict configuration and pure budget arithmetic.
-- `src/selection.js`: useful, balanced prefix selection and actual replay-input fingerprints.
-- `src/guard.js`: one bounded failure record per live session; exponential cooldown.
-- `src/engine.js`: thin Basic subclass; official region/manual/overflow transactions are reused.
-- `src/index.js`: host imports, exact compatibility gate and schema.
-- `src/preset-definition.js`: pure transformation of the host's shipped standard.
-- `src/global-adapter.js` / `src/global.js`: pinned original-method bridge, per-runtime ownership and global plugin lifecycle.
-- `src/legacy.js` / `src/legacy-list.js`: register the historical identity with stock Basic, hide only its healthy nondefault roster row, preserve all resolution/mount semantics.
-- `src/preset.js`: advanced explicit v0.1 preset export, no longer loaded by the default bundle.
+- [policy.js](<src/policy.js>): strict configuration and pure budget arithmetic.
+- [selection.js](<src/selection.js>): useful, balanced prefix selection and actual replay-input fingerprints.
+- [guard.js](<src/guard.js>): one bounded failure record per live session; exponential cooldown.
+- [engine.js](<src/engine.js>): thin Basic subclass; official region/manual/overflow transactions are reused.
+- [index.js](<src/index.js>): host imports, exact compatibility gate and schema.
+- [global-adapter.js](<src/global-adapter.js>) / [global.js](<src/global.js>): pinned original-method bridge, per-runtime ownership and the sole default plugin lifecycle.
 
-Global integration and roster filtering are compatibility adapters, not public stable replacement APIs. Do not broaden host ranges or refresh method fingerprints without reading and exercising the corresponding implementations. Never overwrite an unrelated method wrapper on disposal. Keep logs, debugging snapshots and intermediate design documents out of commits; use ignored `.cache/` for local experiments.
+Global integration uses a version-pinned method adapter, not a public stable replacement API. Do not broaden host ranges or refresh method fingerprints without reading and exercising the corresponding implementations. Never overwrite an unrelated method wrapper on disposal. Keep logs, debugging snapshots and intermediate design documents out of commits; use ignored `.cache/` for local experiments.
 
 Do not patch request headers, capacities, token prices or global fetch to change the pressure formula. Do not add another summarizer or provider to this project. Preserve tool pairs and the newest unit. Do not place transcript text in diagnostics. Treat pressure and confirmed overflow as different policies.
 

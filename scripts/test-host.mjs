@@ -8,7 +8,7 @@ if (process.env.DSH_HOST_ROOT.includes('.asar/') && !process.versions.electron) 
   console.error('An ASAR host needs Electron in Node mode: ELECTRON_RUN_AS_NODE=1 <Electron executable> scripts/test-host.mjs. See CONTRIBUTING.md.');
   process.exit(2);
 }
-const result = spawnSync(process.execPath, ['--import', './scripts/host-hooks.mjs', '--test', 'test/host.integration.js', 'test/global.host.integration.js', 'test/legacy.host.integration.js'], {
+const result = spawnSync(process.execPath, ['--import', './scripts/host-hooks.mjs', '--test', 'test/host.integration.js', 'test/global.host.integration.js'], {
   cwd: fileURLToPath(new URL('../', import.meta.url)), env: process.env, stdio: 'inherit',
 });
 if (result.error) { console.error(result.error.message); process.exit(1); }

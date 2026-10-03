@@ -1,9 +1,5 @@
-# Global pressure policy on original official Basic engines; no preset selection.
-# The hidden legacy identity only preserves restoration of v0.1 conversations.
+# One global policy component; no added presets or compatibility registrations.
 - insert:
     - id: compaction-policy-global
       name: dsh-compaction-policy/global
-      config: {}
-    - id: compaction-policy-legacy
-      name: dsh-compaction-policy/legacy
       config: {}

@@ -2,14 +2,13 @@
 // No host boot, server, credentials, actual session logs, or network requests.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Context, Service } from '@deepseek-ai/cordis';
+import { Context } from '@deepseek-ai/cordis';
 import { Session } from '@deepseek-ai/dsh-session';
 import TokenMeter from '@deepseek-ai/dsh-token-meter';
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
 import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner';
 import { toolPairingBalancedBefore, toolPairingBalancedAfter } from '@deepseek-ai/dsh-compaction';
 import Engine from '../src/index.js';
-import Preset from '../src/preset.js';
 import { selectRange } from '../src/selection.js';
 
 function context(config = {}) {
@@ -238,22 +237,4 @@ test('real cancelled overflow never retries or advances the surface', async () =
   const outcome = await f.ctx.waterfall('agent/request-error', { agent: f.agent, failure: { code: 'CONTEXT_WINDOW_EXCEEDED' }, signal: controller.signal }, () => ({ kind: 'original-error' }));
   assert.deepEqual(outcome, { kind: 'original-error' }); assert.equal(f.state.requests.length, 0);
   assert.equal(f.session.surface.replaceGeneration, 0);
-});
-
-test('shipped standard resolves through public exports; separate preset registers and disposes without defaults', async () => {
-  const ctx = new Context(); const registered = [];
-  ctx.provide('agentPresets', { async register(def) { registered.push(def); return () => { registered.splice(registered.indexOf(def), 1); }; } });
-  const plugin = new Preset(ctx, { policy: { mode: 'stock', modelPolicies: [{ provider: 'test-local', model: 'test-model', mode: 'policy' }] } });
-  const iterator = plugin[Service.init]();
-  const { value: dispose } = await iterator.next();
-  assert.equal(registered.length, 1);
-  const definition = registered[0];
-  assert.equal(definition.id, 'compaction-policy');
-  assert.equal(definition.plugins.length, 19);
-  const group = definition.plugins.find((p) => p.id === 'compaction');
-  assert.equal(group.config.find((p) => p.id === 'compaction-policy-engine').name, 'dsh-compaction-policy');
-  assert(group.config.some((p) => p.name === '@deepseek-ai/dsh-command-compact'));
-  assert(group.config.some((p) => p.name === '@deepseek-ai/dsh-compaction-tool-result-pruner'));
-  assert(!('default' in definition));
-  await dispose(); await iterator.return(); assert.equal(registered.length, 0);
 });

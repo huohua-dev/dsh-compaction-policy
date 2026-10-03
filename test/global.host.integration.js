@@ -346,6 +346,13 @@ test('actual Cordis plugin activation and disposal preserve service identity and
   assert.equal(Basic.prototype.compactIfNeeded, original);
 });
 
+test('published package resolves global entry and rejects removed preset entrypoints', async () => {
+  assert.equal((await import('dsh-compaction-policy/global')).default, GlobalPlugin);
+  for (const entry of ['legacy', 'preset']) {
+    await assert.rejects(import(`dsh-compaction-policy/${entry}`), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
+  }
+});
+
 test('all proof cleanup leaves exactly original prototype descriptor', () => {
   assert.deepEqual(Object.getOwnPropertyDescriptor(Basic.prototype, 'compactIfNeeded'), originalDescriptor);
 });

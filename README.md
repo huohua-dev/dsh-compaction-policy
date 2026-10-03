@@ -4,23 +4,20 @@
 
 **An experimental global compaction policy for DeepSeek Harness.** Keep the official Basic summarizer, checkpoint records, tool pairing, token meter, UI event protocol, native `/compact`, and overflow recovery. Change proactive budgeting, range selection, and no-progress retries—without selecting a special preset.
 
-**Experimental v0.2.0.** Compatibility is pinned to DSH Basic/compaction **`0.2.0-rc.2`** and Cordis **`4.0.4`**, including hash checks of five Basic methods. Actual-host tests with synthetic sessions and scripted model responses have passed. **This is not proof of live GUI behavior or summary quality on a native Windows/real-model session.** No lossless-summary or larger-context-window claim is made.
+**Experimental v0.2.1.** Compatibility is pinned to DSH Basic/compaction **`0.2.0-rc.2`** and Cordis **`4.0.4`**, including hash checks of five Basic methods. Actual-host tests with synthetic sessions and scripted model responses have passed. **This is not proof of live GUI behavior or summary quality on a native Windows/real-model session.** No lossless-summary or larger-context-window claim is made.
 
 ## What installation changes
 
-The default bundle installs two **root plugins**:
+The default bundle installs exactly **one root plugin**:
 
 ```yaml
 - id: compaction-policy-global
   name: dsh-compaction-policy/global
   config: {}
-- id: compaction-policy-legacy
-  name: dsh-compaction-policy/legacy
-  config: {}
 ```
 
-- **Global policy:** covers eligible existing and future official Basic instances in the **same Cordis runtime**, including ordinary presets. It adds no compaction engine or automatic compaction listener and does not switch presets.
-- **Legacy compatibility:** keeps the historical `compaction-policy` preset identity resolvable for v0.1 sessions, with stock Basic. Normally it is hidden from the selection list; the new default bundle adds **no visible selectable special preset**.
+- **Global policy:** covers eligible existing and future official Basic instances in the **same Cordis runtime**, including ordinary presets. It uses Basic's native pressure mechanism, adds no compaction engine or automatic compaction listener, and does not switch presets.
+- **No special preset:** the package registers no preset and does not filter the preset registry. Continue using your normal presets.
 - Your **current default provider and preset stay unchanged**. Main-request output limits, reasoning effort, provider/model selection, and token accounting are not rewritten.
 
 Only the exact pinned official Basic implementation is targeted. Custom backends, subclasses, and instances with method overrides are skipped. Presets with no compaction, including minimal compositions without it, are unaffected. “Global” does not mean every DSH process or profile on the machine.
@@ -55,15 +52,15 @@ Defaults are **`thresholdRatio: 0.9`, `outputReserveCap: 0`, `headroomTokens: 0`
 
 ## Install
 
-Distribution is via GitHub, not npm. Install the **v0.2.0 release tag**:
+Distribution is via GitHub, not npm. Install the **v0.2.1 release tag**:
 
 ```text
-github:huohua-dev/dsh-compaction-policy#v0.2.0
+github:huohua-dev/dsh-compaction-policy#v0.2.1
 ```
 
 ### Desktop-managed profile
 
-**Use the Desktop plugin-manager UI** to add the GitHub source, then reload/restart the existing Desktop host as requested. Desktop-managed plugin changes via CLI are rejected; do not use a `--profile desktop` CLI workaround.
+**Use the Desktop plugin-manager UI** to add or update the GitHub source, then **fully quit and restart Desktop** so the existing host process is replaced. A page refresh or profile reload is not a substitute after an upgrade: an old-process import failure was observed and cleared by a full restart. Desktop-managed plugin changes via CLI are rejected; do not use a `--profile desktop` CLI workaround.
 
 After loading, use your existing normal preset. No special preset selection is required. Run `/compaction-policy-global status` in the session to inspect coverage and the effective policy. Installation does not choose a new default provider or preset.
 
@@ -72,7 +69,7 @@ After loading, use your existing normal preset. No special preset selection is r
 For a web profile **not managed by Electron/Desktop**:
 
 ```sh
-dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.0
+dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.1
 ```
 
 Reload/restart that existing host. This CLI example is not an alternative installation path for Desktop.
@@ -135,26 +132,27 @@ Where upstream defaults are used, the **65,536-token summary cap stays intact**.
 
 On disposal, the global policy becomes **inactive first**, then drains in-flight work before safe restoration. Foreign wrappers are not overwritten: if another plugin has wrapped a patched method, this plugin's wrapper stays **inert until safe restoration or restart**. Disabling does not forcibly rebind running agents.
 
-## Upgrade from v0.1 and legacy sessions
+## Upgrade to v0.2.1
 
-1. Remove the obsolete **user-authored override with id `compaction-policy-preset`**; review custom routes and compositions that still reference the old entry. Package installation does **not** silently edit your profile.
-2. Load the new default bundle through the appropriate plugin manager. Choose an **existing normal preset** for new chats; if you previously made the legacy preset your default, change that default explicitly.
-3. Keep `compaction-policy-legacy` enabled while you need to resume old v0.1 logs.
+The old test preset `compaction-policy` is no longer registered. There is **no old-session restoration compatibility**; previous test sessions are not a supported upgrade target. The package does not delete or rewrite session logs.
 
-The compatibility plugin registers the **exact historical `compaction-policy` id**, built from the host's shipped standard preset with **stock Basic**, not the advanced policy backend. A pinned, scoped, reversible selection-list filter hides this compatibility row without deleting the registered preset. If the selected default is the legacy id, or the legacy declaration itself is broken, that row stays visible—**the current default and activation diagnostics are not silently hidden**. An old session header may still display its historical `compaction-policy` id; that is not a new picker option.
+1. Remove obsolete user profile overrides for **`compaction-policy-legacy` and `compaction-policy-preset`**, plus custom references to those removed entries. Package installation does not silently edit your profile.
+2. If your default still points to the test preset, explicitly restore an **existing normal preset** as the default.
+3. Update through the Desktop plugin-manager UI, then **fully quit and restart Desktop**. For a non-Electron-managed web profile, update through its plugin manager and restart that host. Check a new chat with a normal preset and `/compaction-policy-global status`.
 
-Session identities, logs, and children are preserved; nothing is rewritten or automatically migrated. Already-live v0.1 policy instances get the legacy stock-Basic composition only on **natural restoration or restart**, not by rebinding running agents.
+### Custom compositions
 
-The old independent **`dsh-compaction-policy/preset` export and root `dsh-compaction-policy` backend remain advanced legacy options**, not default installation instructions. Owned custom compositions must still use only one backend inside their isolated compaction group. The global plugin is not a replacement backend. Headless use of the **global** entry requires the host's **`commands` and `agentPresets` services**; a rosterless composition without them cannot load it unchanged.
+The root **`dsh-compaction-policy` backend** and **`dsh-compaction-policy/global` entry** remain available; the `/preset` and `/legacy` exports are removed. The default bundle loads only the global entry. Custom compositions must use only one backend inside their isolated compaction group; the global plugin is not a replacement backend. Headless use of the global entry requires the host's **`commands` and `agentPresets` services**; a composition without them cannot load it unchanged.
 
 ## Disable or uninstall
 
-- To stop the new global policy while retaining old-session compatibility, **disable only `compaction-policy-global`**, leaving `compaction-policy-legacy` enabled; alternatively set `config.policy.mode: stock` and remove any route overrides that still enable policy mode.
-- For full removal, finish/stop affected work, choose an existing normal preset for new chats, and explicitly fix any default still pointing to the legacy id. Remove your own plugin overrides and custom-preset references.
-- **Desktop:** remove the bundle through the Desktop plugin-manager UI, then reload/restart the existing host.
-- **Non-Electron-managed web only:** `dsh plugin --profile web remove dsh-compaction-policy`, then reload/restart that host.
+- To stop the global policy, **disable `compaction-policy-global`**; alternatively set `config.policy.mode: stock` and remove any route overrides that still enable policy mode.
+- For full removal, finish/stop affected work, remove your own plugin overrides and custom-composition references, and ensure the default is an existing normal preset.
+- **Desktop:** remove the bundle through the Desktop plugin-manager UI, then fully quit and restart Desktop.
+- **Non-Electron-managed web only:** `dsh plugin --profile web remove dsh-compaction-policy`, then restart that host.
+- After removal, open a **new chat with a normal preset** and verify that it loads and uses the host's normal compaction behavior.
 
-Committed native checkpoints remain readable without the package. **Old v0.1 logs still require the legacy compatibility plugin to resume** under their original preset identity. There is no automatic log migration, identity rewrite, or restoration of all pre-compaction history into active context.
+Uninstalling does not delete or rewrite session logs, migrate test-preset identities, or restore all pre-compaction history into active context.
 
 ## Limits and verification
 

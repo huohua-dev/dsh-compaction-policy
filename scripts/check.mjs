@@ -18,15 +18,14 @@ for (const directory of ['src', 'scripts', 'test']) {
 }
 const patch = await readFile(join(root, 'cordis.patch.yml'), 'utf8');
 if (/selectedDefault|agent-preset-registry|disabled:\s*true/.test(patch)) throw new Error('Bundle must not change built-ins or defaults.');
-for (const entry of ['global', 'legacy']) {
-  if (pkg.exports[`./${entry}`] !== `./src/${entry}.js` || !patch.includes(`name: dsh-compaction-policy/${entry}`)) {
-    throw new Error(`Default bundle must export and load /${entry}`);
-  }
+if (pkg.exports['./global'] !== './src/global.js' || !patch.includes('name: dsh-compaction-policy/global')) {
+  throw new Error('Default bundle must export and load /global');
 }
-if (patch.includes('dsh-compaction-policy/preset') || patch.includes('Compaction Policy (standard)')) {
-  throw new Error('Default bundle must not add the old selectable preset');
+if ((patch.match(/\bname:/g) ?? []).length !== 1 || /legacy|\/preset|Compaction Policy \(standard\)/.test(patch)
+  || pkg.exports['./legacy'] || pkg.exports['./preset']) {
+  throw new Error('Bundle must contain exactly one global component and no compatibility preset');
 }
-for (const name of ['@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-compaction', '@deepseek-ai/dsh-web-app']) {
+for (const name of ['@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-compaction']) {
   if (pkg.peerDependencies[name] !== '0.2.0-rc.2') throw new Error('Update compatibility tests before changing host range.');
 }
-console.log('Syntax, package inventory, host pins, and global/legacy bundle checks passed.');
+console.log('Syntax, package inventory, host pins, and single-global bundle checks passed.');
