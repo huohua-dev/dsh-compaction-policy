@@ -1,0 +1,9 @@
+# Installation adds a separate, opt-in preset. It does not change the default,
+# the stock backend, model routes, or existing sessions.
+- insert:
+    - id: compaction-policy-preset
+      name: dsh-compaction-policy/preset
+      config:
+        id: compaction-policy
+        name: Compaction Policy (standard)
+        policy: {}
