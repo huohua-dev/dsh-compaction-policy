@@ -4,7 +4,7 @@
 
 **An experimental global compaction policy for DeepSeek Harness.** Keep the official Basic summarizer, checkpoint records, tool pairing, token meter, UI event protocol, native `/compact`, and overflow recovery. Change proactive budgeting, range selection, and no-progress retries—without selecting a special preset.
 
-**Experimental v0.2.1.** Compatibility is pinned to DSH Basic/compaction **`0.2.0-rc.2`** and Cordis **`4.0.4`**, including hash checks of five Basic methods. Actual-host tests with synthetic sessions and scripted model responses have passed. **This is not proof of live GUI behavior or summary quality on a native Windows/real-model session.** No lossless-summary or larger-context-window claim is made.
+**Experimental v0.2.1.** Compatibility is pinned to DSH Basic/compaction **`0.2.1-rc.1`** and Cordis **`4.0.x`**, including hash checks of five Basic methods. Actual-host tests with synthetic sessions and scripted model responses have passed. **This is not proof of live GUI behavior or summary quality on a native Windows/real-model session.** No lossless-summary or larger-context-window claim is made.
 
 ## What installation changes
 

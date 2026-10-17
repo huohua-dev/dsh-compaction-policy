@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Accept host DSH Basic/compaction `0.2.1-rc.1` and Cordis `4.0.x`. The adapter was pinned to `0.2.0-rc.2` / `4.0.4` and refused to load after the host upgrade; the version gate was the only blocker.
+- Re-verified all five pinned Basic method hashes against the installed host. `dsh-compaction-basic@0.2.1-rc.1` ships a byte-identical `lib/index.js` to `0.2.0-rc.2` (locale files and README i18n only), and `cordis@4.0.5` ships a byte-identical `lib/index.js` to `4.0.4`, so no method fingerprint changed and the hash gate is unchanged.
+- Admit the Cordis `4.0.x` patch line instead of one exact version, so a patch bump cannot force a re-pin. `dsh-compaction` stays exact.
+- Move the host version constants into `src/host-version.js` so the runtime gate, the packaging check and the peer dependencies cannot drift apart.
+- No behavioral change: threshold arithmetic, selection, retry guard, dry run and status reporting are untouched.
+
 ## 0.2.1 — 2026-10-03
 
 - Keep exactly one default component: `dsh-compaction-policy/global`.

@@ -10,7 +10,7 @@ npm run pack:check
 
 ## Test against a real DSH host
 
-Set `DSH_HOST_ROOT` to the directory containing the **installed host's** package manifest and `node_modules`. Do not point it at a profile that contains only plugin dependencies. Only DSH **0.2.0-rc.2** is currently supported.
+Set `DSH_HOST_ROOT` to the directory containing the **installed host's** package manifest and `node_modules`. Do not point it at a profile that contains only plugin dependencies. Only DSH **0.2.1-rc.1** is currently supported.
 
 For an ordinary filesystem installation:
 
@@ -32,6 +32,12 @@ The test-only resolver maps bare host imports to that explicit installation. Pro
 If a host is missing, the command fails with guidance; it does not download one or silently skip the suite. CI runs the dependency-free tests and package checks. Host integration must also pass locally before a supported-version change or release.
 
 ## Current acceptance record
+
+2026-10-17, DSH 0.2.1-rc.1 (Cordis 4.0.5), standalone Node 24.21.0:
+
+- `dsh-compaction-basic@0.2.1-rc.1` ships a byte-identical `lib/index.js` to `0.2.0-rc.2`; `cordis@4.0.5` ships a byte-identical `lib/index.js` to `4.0.4`. Both were diffed against the installed host and the published npm tarballs.
+- All five pinned Basic method fingerprints re-verified against the installed host build: all match. `src/global-adapter.js` fingerprints are unchanged.
+- Dependency-free tests (58) and package checks pass unchanged.
 
 2026-10-03, DSH 0.2.0-rc.2, Electron Node 24.18.1 and standalone Node 24.21.0:
 

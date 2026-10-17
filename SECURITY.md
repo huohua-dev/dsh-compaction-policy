@@ -18,7 +18,7 @@ Known constraints:
 
 - The host's token meter is approximate; capped reservation cannot guarantee admission by every provider.
 - The plugin's cooldown is proactive only. Manual and provider-confirmed overflow recovery can perform compaction during a proactive cooldown or dry run.
-- The plugin is explicitly pinned to DSH 0.2.0-rc.2; an untested host is refused.
+- The plugin is explicitly pinned to DSH 0.2.1-rc.1 (Cordis 4.0.x); an untested host is refused. Re-verify the five method hashes before widening either range.
 - The current test evidence covers core contracts with a scripted model, not live-model quality or a full GUI installation.
 
 Do not include credentials, complete conversation logs or private source code in public bug reports. For a vulnerability, use GitHub private vulnerability reporting if available, otherwise ask the maintainer for a private channel before sharing exploit details. Do not open a public issue containing secrets.

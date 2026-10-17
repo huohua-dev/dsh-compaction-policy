@@ -6,6 +6,7 @@ import { toolPairingBalancedBefore, toolPairingBalancedAfter } from '@deepseek-a
 import z from '@deepseek-ai/schemastery';
 import { policyFields } from './index.js'; // Exact Basic version admission; no Service construction.
 import { installGlobalAdapter } from './global-adapter.js';
+import { CORDIS_RANGE, COMPACTION_VERSION } from './host-version.js';
 
 /** Root plugin, intentionally NOT a compaction Service or preset provider. */
 export default class GlobalCompactionPolicy {
@@ -18,8 +19,8 @@ export default class GlobalCompactionPolicy {
   constructor(ctx, config = {}) { this.ctx = ctx; this.config = config; }
 
   async *[Service.init]() {
-    if (cordisPackage.version !== '4.0.4' || compactionPackage.version !== '0.2.0-rc.2') {
-      throw new Error('compaction-policy global adapter requires verified Cordis 4.0.4 / DSH compaction 0.2.0-rc.2');
+    if (!CORDIS_RANGE.test(cordisPackage.version) || compactionPackage.version !== COMPACTION_VERSION) {
+      throw new Error(`compaction-policy global adapter requires verified Cordis ${CORDIS_RANGE} / DSH compaction ${COMPACTION_VERSION}`);
     }
     const ctx = this.ctx;
     const handle = installGlobalAdapter({ ctx, policy: this.config.policy,

@@ -3,10 +3,11 @@ import z from '@deepseek-ai/schemastery';
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
 import { toolPairingBalancedBefore, toolPairingBalancedAfter } from '@deepseek-ai/dsh-compaction';
 import { createPolicyEngine } from './engine.js';
+import { COMPACTION_VERSION } from './host-version.js';
 
 const version = basicPackage.version;
-if (version !== '0.2.0-rc.2') {
-  throw new Error(`dsh-compaction-policy supports DSH 0.2.0-rc.2; found ${version}. Re-test before upgrading.`);
+if (version !== COMPACTION_VERSION) {
+  throw new Error(`dsh-compaction-policy supports DSH ${COMPACTION_VERSION}; found ${version}. Re-test before upgrading.`);
 }
 
 export const policyFields = () => ({
