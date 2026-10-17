@@ -1,6 +1,8 @@
-// Version-pinned compatibility adapter, NOT a public DSH strategy API.
+// Fingerprint-verified compatibility adapter, NOT a public DSH strategy API.
 // It changes one dynamically-dispatched method; no Service is constructed,
 // no second event listener is added and no preset/session is recomposed.
+// Host version numbers only admit a generation (see host-version.js); the
+// method fingerprints below decide whether the policy may activate.
 import { createHash } from 'node:crypto';
 import { createPolicyEngine } from './engine.js';
 import { resolveConfig } from './policy.js';
@@ -11,13 +13,56 @@ const raw = value => value?.[Symbol.for('cordis.original')] ?? value;
 const rootOf = ctx => raw(ctx?.root);
 const hash = fn => createHash('sha256').update(Function.prototype.toString.call(fn)).digest('hex');
 
-export const RC2_METHOD_HASHES = Object.freeze({
+/** Marks a host/environment mismatch that must disable the policy, not the host. */
+export class UnsupportedHostError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = 'UnsupportedHostError';
+    this.code = 'DSH_COMPACTION_POLICY_UNSUPPORTED_HOST';
+  }
+}
+
+// Verified against the shipped Basic implementation shared byte-for-byte by
+// DSH 0.2.0-rc.2, 0.2.1-rc.1 and 0.2.1-rc.2. The name is version-neutral on
+// purpose: an upstream build whose methods still fingerprint identically
+// needs no plugin change, whatever its version label says.
+export const VERIFIED_BASIC_METHOD_HASHES = Object.freeze({
   compactIfNeeded: 'fd7625c4d66b8286fca1098ddd0b98f2afcf3e9d93ae821836f7df13d21404c3',
   compactRegion: 'a247e99c98e56c0236fae5eaa00a2de25f2bff26f8069fb8f637b759cf5a4efa',
   regionDependencies: '808f10f4e9550664dfd4054f624deb2b45283bef7fb6541fbce9f41a9a7dea13',
   summarize: 'ae745613f2a453b5beeb5de758b30c06bf7b8ff40498de404b7b63423f1cdb07',
   compactNow: '5c34231543f1d21c8e77404aae5f1b0bca4fbbce0514f8ae7fd6cb3bf7a4240a',
 });
+// Historical name, retained for existing importers/tests.
+export const RC2_METHOD_HASHES = VERIFIED_BASIC_METHOD_HASHES;
+
+/** Hash one host method exactly as the activation gate does. */
+export function methodHash(fn) {
+  return typeof fn === 'function' ? hash(fn) : null;
+}
+
+/**
+ * Structural + fingerprint contract for the host seams the policy subclasses
+ * and bridges. Throws UnsupportedHostError; never mutates the host.
+ */
+export function assertBasicCompactionContract({ BasicCompactionEngine: Basic, toolPairingBalancedBefore,
+  toolPairingBalancedAfter }, expectedHashes = VERIFIED_BASIC_METHOD_HASHES) {
+  if (typeof Basic !== 'function' || Basic.prototype === null || typeof Basic.prototype !== 'object') {
+    throw new UnsupportedHostError('compaction-policy: BasicCompactionEngine is not a constructable host class');
+  }
+  if (typeof toolPairingBalancedBefore !== 'function' || typeof toolPairingBalancedAfter !== 'function') {
+    throw new UnsupportedHostError('compaction-policy: host tool-pairing helpers are missing');
+  }
+  const originals = {};
+  for (const name of METHODS) {
+    const method = Basic.prototype[name];
+    if (typeof method !== 'function' || hash(method) !== expectedHashes[name]) {
+      throw new UnsupportedHostError(`compaction-policy: ${name} differs from the verified host; refusing an unknown version or foreign method patch`);
+    }
+    originals[name] = method;
+  }
+  return originals;
+}
 
 export const GLOBAL_DEFAULTS = Object.freeze({
   thresholdRatio: .9,
@@ -48,7 +93,7 @@ function registry() {
     value = { abi: 1, managers: new WeakMap() };
     Object.defineProperty(globalThis, KEY, { value, configurable: false, writable: false });
   }
-  if (value?.abi !== 1 || !(value.managers instanceof WeakMap)) throw new Error('compaction-policy: incompatible adapter registry');
+  if (value?.abi !== 1 || !(value.managers instanceof WeakMap)) throw new UnsupportedHostError('compaction-policy: incompatible adapter registry');
   return value.managers;
 }
 
@@ -58,24 +103,20 @@ function registry() {
  * restoration. An unrelated wrapper is never overwritten on disposal.
  */
 export function installGlobalAdapter({ BasicCompactionEngine: Basic, toolPairingBalancedBefore,
-  toolPairingBalancedAfter, ctx, policy = {}, expectedHashes = RC2_METHOD_HASHES }) {
+  toolPairingBalancedAfter, ctx, policy = {}, expectedHashes = VERIFIED_BASIC_METHOD_HASHES }) {
   const root = rootOf(ctx);
-  if (!root) throw new Error('compaction-policy: a Cordis runtime root is required');
+  if (!root) throw new UnsupportedHostError('compaction-policy: a Cordis runtime root is required');
   const config = resolveConfig({ ...GLOBAL_DEFAULTS, ...policy });
   if (Object.keys(config.basic).length) throw new Error('compaction-policy: global mode preserves each existing Basic config; basic overrides are not supported');
   const managers = registry();
+  const verifiedOriginals = managers.has(Basic?.prototype)
+    ? null
+    : assertBasicCompactionContract({ BasicCompactionEngine: Basic, toolPairingBalancedBefore, toolPairingBalancedAfter }, expectedHashes);
   let manager = managers.get(Basic.prototype);
   if (!manager) {
     const descriptor = Object.getOwnPropertyDescriptor(Basic.prototype, 'compactIfNeeded');
-    if (!descriptor?.writable || !descriptor.configurable) throw new Error('compaction-policy: unsupported pressure method descriptor');
-    const originals = {};
-    for (const name of METHODS) {
-      const method = Basic.prototype[name];
-      if (typeof method !== 'function' || hash(method) !== expectedHashes[name]) {
-        throw new Error(`compaction-policy: ${name} differs from the verified host; refusing an unknown version or foreign method patch`);
-      }
-      originals[name] = method;
-    }
+    if (!descriptor?.writable || !descriptor.configurable) throw new UnsupportedHostError('compaction-policy: unsupported pressure method descriptor');
+    const originals = verifiedOriginals;
     // Capture lexical super targets BEFORE changing the live prototype.
     // Neither this bridge nor its policy subclass may be constructed.
     class Bridge { constructor() { throw new Error('compaction-policy: method bridge cannot construct a service'); } }
@@ -130,11 +171,11 @@ export function installGlobalAdapter({ BasicCompactionEngine: Basic, toolPairing
     Object.defineProperty(Basic.prototype, 'compactIfNeeded', { ...descriptor, value: m.wrapper });
     managers.set(Basic.prototype, m);
   } else {
-    if (Basic.prototype.compactIfNeeded !== manager.wrapper) throw new Error('compaction-policy: foreign wrapper above adapter; refusing another install');
+    if (Basic.prototype.compactIfNeeded !== manager.wrapper) throw new UnsupportedHostError('compaction-policy: foreign wrapper above adapter; refusing another install');
     // Another package copy must agree on EVERY pinned original, not just ABI.
     for (const name of METHODS) if (hash(manager.originals[name]) !== expectedHashes[name]
       || (name !== 'compactIfNeeded' && Basic.prototype[name] !== manager.originals[name])) {
-      throw new Error(`compaction-policy: incompatible or changed host method ${name}`);
+      throw new UnsupportedHostError(`compaction-policy: incompatible or changed host method ${name}`);
     }
   }
   if (manager.roots.has(root)) throw new Error('compaction-policy: already installed or draining in this runtime');

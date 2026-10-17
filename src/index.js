@@ -1,28 +1,29 @@
 import basicPackage from '@deepseek-ai/dsh-compaction-basic/package.json' with { type: 'json' };
+import compactionPackage from '@deepseek-ai/dsh-compaction/package.json' with { type: 'json' };
 import z from '@deepseek-ai/schemastery';
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic';
 import { toolPairingBalancedBefore, toolPairingBalancedAfter } from '@deepseek-ai/dsh-compaction';
 import { createPolicyEngine } from './engine.js';
-import { COMPACTION_VERSION } from './host-version.js';
+import { assertBasicCompactionContract, UnsupportedHostError } from './global-adapter.js';
+import { DSH_RANGE, isSupportedDshVersion } from './host-version.js';
+import { policyFields } from './policy-fields.js';
 
-const version = basicPackage.version;
-if (version !== COMPACTION_VERSION) {
-  throw new Error(`dsh-compaction-policy supports DSH ${COMPACTION_VERSION}; found ${version}. Re-test before upgrading.`);
+export { policyFields };
+
+// The root backend is an explicit, opt-in composition choice, so it fails
+// loudly on an unverified host instead of silently behaving like stock. The
+// default global entry (./global.js) does NOT import this module; it converts
+// the same UnsupportedHostError into an inert, stock-preserving disable.
+if (!isSupportedDshVersion(basicPackage.version) || !isSupportedDshVersion(compactionPackage.version)) {
+  throw new UnsupportedHostError(
+    `dsh-compaction-policy backend requires DSH ${DSH_RANGE}; found compaction-basic ${basicPackage.version} / compaction ${compactionPackage.version}.`,
+  );
+}
+assertBasicCompactionContract({ BasicCompactionEngine, toolPairingBalancedBefore, toolPairingBalancedAfter });
+if (!BasicCompactionEngine.Config) {
+  throw new UnsupportedHostError('dsh-compaction-policy backend requires BasicCompactionEngine.Config.');
 }
 
-export const policyFields = () => ({
-  mode: z.union(['policy', 'stock']),
-  pruneToolResults: z.boolean(),
-  thresholdRatio: z.number(),
-  outputReserveCap: z.number().step(1).min(0),
-  headroomTokens: z.number().step(1).min(0),
-  retainRatio: z.number(),
-  retainTokens: z.number().step(1).min(0),
-  minFreshTokens: z.number().step(1).min(1),
-  retryAfterTokens: z.number().step(1).min(1),
-  retryCooldownMs: z.number().step(1).min(1),
-  maxRetryCooldownMs: z.number().step(1).min(1),
-});
 const PolicyCompactionEngine = createPolicyEngine({
   BasicCompactionEngine, toolPairingBalancedBefore, toolPairingBalancedAfter,
 });

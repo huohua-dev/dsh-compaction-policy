@@ -4,7 +4,7 @@
 
 **An experimental global compaction policy for DeepSeek Harness.** Keep the official Basic summarizer, checkpoint records, tool pairing, token meter, UI event protocol, native `/compact`, and overflow recovery. Change proactive budgeting, range selection, and no-progress retries—without selecting a special preset.
 
-**Experimental v0.2.1.** Compatibility is pinned to DSH Basic/compaction **`0.2.1-rc.1`** and Cordis **`4.0.x`**, including hash checks of five Basic methods. Actual-host tests with synthetic sessions and scripted model responses have passed. **This is not proof of live GUI behavior or summary quality on a native Windows/real-model session.** No lossless-summary or larger-context-window claim is made.
+**Experimental v0.2.2.** The bundle load-admits the DSH **`^0.2.1-rc.1`** host line (0.2.x, including later release candidates) and Cordis **`4.0.x`**; the policy then *activates* only when five Basic method fingerprints match the verified implementation. A host bump that changes only version labels needs no plugin update, and an unrecognized host build leaves the plugin loaded but inert on stock Basic instead of failing startup. Actual-host tests with synthetic sessions and scripted model responses have passed. **This is not proof of live GUI behavior or summary quality on a native Windows/real-model session.** No lossless-summary or larger-context-window claim is made.
 
 ## What installation changes
 
@@ -20,7 +20,7 @@ The default bundle installs exactly **one root plugin**:
 - **No special preset:** the package registers no preset and does not filter the preset registry. Continue using your normal presets.
 - Your **current default provider and preset stay unchanged**. Main-request output limits, reasoning effort, provider/model selection, and token accounting are not rewritten.
 
-Only the exact pinned official Basic implementation is targeted. Custom backends, subclasses, and instances with method overrides are skipped. Presets with no compaction, including minimal compositions without it, are unaffected. “Global” does not mean every DSH process or profile on the machine.
+Only the fingerprint-verified official Basic implementation is targeted. Custom backends, subclasses, and instances with method overrides are skipped. Presets with no compaction, including minimal compositions without it, are unaffected. “Global” does not mean every DSH process or profile on the machine.
 
 ## Default policy: 90%, with no double deduction
 
@@ -52,10 +52,10 @@ Defaults are **`thresholdRatio: 0.9`, `outputReserveCap: 0`, `headroomTokens: 0`
 
 ## Install
 
-Distribution is via GitHub, not npm. Install the **v0.2.1 release tag**:
+Distribution is via GitHub, not npm. Install the **v0.2.2 release tag**:
 
 ```text
-github:huohua-dev/dsh-compaction-policy#v0.2.1
+github:huohua-dev/dsh-compaction-policy#v0.2.2
 ```
 
 ### Desktop-managed profile
@@ -69,7 +69,7 @@ After loading, use your existing normal preset. No special preset selection is r
 For a web profile **not managed by Electron/Desktop**:
 
 ```sh
-dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.1
+dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.2
 ```
 
 Reload/restart that existing host. This CLI example is not an alternative installation path for Desktop.
@@ -130,9 +130,11 @@ Where upstream defaults are used, the **65,536-token summary cap stays intact**.
 
 `status` reports coverage and proactive diagnostics without transcript content. `reset` clears the current session's proactive retry guard; it does not compact, rewrite history, or change the model. Native `/compact` remains the manual compaction command. A reduction that remains over threshold is reported as `compacted-still-above-threshold`, not as “back under budget”. Failure state is in memory per live session, not persisted across restarts.
 
+After a host upgrade, `status` is also the compatibility answer: `enabled: true` means the verified fingerprints still match. If a future host really changes a verified method, the plugin stays loaded, logs a warning, and reports `enabled: false` with reason `unsupported-host` while stock Basic keeps working untouched; update the plugin when a reviewed build is available. Maintainers can run `npm run compat:host` against the new host for the full fingerprint report (see CONTRIBUTING).
+
 On disposal, the global policy becomes **inactive first**, then drains in-flight work before safe restoration. Foreign wrappers are not overwritten: if another plugin has wrapped a patched method, this plugin's wrapper stays **inert until safe restoration or restart**. Disabling does not forcibly rebind running agents.
 
-## Upgrade to v0.2.1
+## Upgrade from older test builds
 
 The old test preset `compaction-policy` is no longer registered. There is **no old-session restoration compatibility**; previous test sessions are not a supported upgrade target. The package does not delete or rewrite session logs.
 
@@ -158,7 +160,7 @@ Uninstalling does not delete or rewrite session logs, migrate test-preset identi
 
 Summary quality and provider capacity remain model/upstream concerns. Meter values are host estimates; the plugin does not falsify token counts, lower main-request reasoning, add a compression service, wrap global `fetch`, patch ASAR, or ship another DSH kernel. Host plugins run with host privileges; model tool approvals do **not** sandbox them.
 
-Version and five-method hash pins are deliberate safety gates, not a promise of forward compatibility. Host upgrades require review and testing, not merely widening a version range. Actual-host synthetic tests do not establish live UI or native Windows summary quality.
+Compatibility has two separate layers. The declared DSH range only decides whether the bundle may load, so release-candidate and patch bumps inside the 0.2.x host line no longer need a plugin re-pin. The five-method fingerprints decide whether the policy may activate: they are a deliberate safety gate, not a promise that changed upstream internals are supported. If a fingerprint ever differs, the policy fails safe to stock behavior and the new seam must be re-read and re-tested before the fingerprint is refreshed—never merely widened or re-recorded blind. Actual-host synthetic tests do not establish live UI or native Windows summary quality.
 
 ```sh
 npm test

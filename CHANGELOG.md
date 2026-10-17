@@ -1,12 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 — 2026-10-17
 
-- Accept host DSH Basic/compaction `0.2.1-rc.1` and Cordis `4.0.x`. The adapter was pinned to `0.2.0-rc.2` / `4.0.4` and refused to load after the host upgrade; the version gate was the only blocker.
-- Re-verified all five pinned Basic method hashes against the installed host. `dsh-compaction-basic@0.2.1-rc.1` ships a byte-identical `lib/index.js` to `0.2.0-rc.2` (locale files and README i18n only), and `cordis@4.0.5` ships a byte-identical `lib/index.js` to `4.0.4`, so no method fingerprint changed and the hash gate is unchanged.
-- Admit the Cordis `4.0.x` patch line instead of one exact version, so a patch bump cannot force a re-pin. `dsh-compaction` stays exact.
-- Move the host version constants into `src/host-version.js` so the runtime gate, the packaging check and the peer dependencies cannot drift apart.
-- No behavioral change: threshold arithmetic, selection, retry guard, dry run and status reporting are untouched.
+Fix the recurring "incompatible after every DSH upgrade" failure for good. DSH 0.2.1-rc.2 changed no compaction code—its published `dsh-compaction*` tarballs differ from rc.1 only in `package.json` version strings, and all five Basic method fingerprints still match—yet the host rejected the plugin before importing it. Three stacked exact-version gates were the whole problem; all three are gone.
+
+- **Manifest layer:** declare `engines.dsh: ^0.2.1-rc.1`. The host evaluates `engines.dsh` alone (prereleases included) when it exists, so the whole 0.2.x host line is admitted instead of one exact build. The `dsh-*` peers use the same range and Cordis uses `~4.0.4`; `scripts/check.mjs` now rejects an exact host build instead of demanding one.
+- **Runtime layer:** `src/host-version.js` is the single source for range admission (dependency-free semver compare). Version numbers now only select the host generation; they no longer have to be re-pinned per rc.
+- **Activation layer (unchanged strictness):** the five Basic method fingerprints remain the real contract, renamed to the version-neutral `VERIFIED_BASIC_METHOD_HASHES` because the identical implementation spans 0.2.0-rc.2 → 0.2.1-rc.2.
+- **Fail-safe instead of fail-stop:** the default global entry no longer imports the root backend (shared schema moved to `src/policy-fields.js`), and converts any `UnsupportedHostError`—range, fingerprint, descriptor or foreign wrapper—into an inert disable: stock Basic stays untouched, a warning is logged, and `/compaction-policy-global status` reports `enabled: false` / `unsupported-host`. A future host that really moves a seam degrades to stock compaction instead of breaking startup. The opt-in root backend still throws loudly.
+- Add `npm run compat:host`: a one-command post-upgrade report (admitted versions, seam shape, all five fingerprints) so the next bump can be classified—label-only vs. real seam change—before touching code.
+- Verified on the installed DSH 0.2.1-rc.2 host: compat probe passes, real-host suite 34/34 (including a new fingerprint-drift-stays-inert regression), dependency-free tests 63/63.
+- No policy behavioral change on a verified host: threshold arithmetic, selection, retry guard, dry run and status reporting are untouched.
 
 ## 0.2.1 — 2026-10-03
 

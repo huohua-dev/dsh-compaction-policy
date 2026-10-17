@@ -4,7 +4,7 @@
 
 **DeepSeek Harness 的实验性全局压缩策略。** 保留官方 Basic 摘要、checkpoint 记录、工具配对、token meter、UI 事件协议、原生 `/compact` 和溢出恢复；只调整主动压缩预算、范围与无进展重试，**不必切换特殊预设**。
 
-**实验性 v0.2.1。** 精确兼容 DSH Basic/compaction **`0.2.1-rc.1`**、Cordis **`4.0.x`**，并校验五个 Basic 方法的哈希。真实宿主组件上的合成会话、脚本化模型响应测试已通过，**不代表已验证实际 GUI 行为，也不证明原生 Windows／真实模型会话的摘要质量**。不宣称无损摘要或扩大模型窗口。
+**实验性 v0.2.2。** bundle 按范围准入 DSH **`^0.2.1-rc.1`** 宿主线（0.2.x，含后续 rc）与 Cordis **`4.0.x`**；策略再在运行时校验五个 Basic 方法指纹，全部与已验证实现一致才启用。只改版本号的宿主升级无需更新插件；遇到未验证的宿主实现时，插件保持加载但停用自身、原生 Basic 照常工作，不会让启动失败。真实宿主组件上的合成会话、脚本化模型响应测试已通过，**不代表已验证实际 GUI 行为，也不证明原生 Windows／真实模型会话的摘要质量**。不宣称无损摘要或扩大模型窗口。
 
 ## 安装会改变什么
 
@@ -20,7 +20,7 @@
 - **无特殊预设：**本包不注册任何预设，也不过滤预设注册表。继续使用普通预设即可。
 - **当前默认 provider 和预设保持不变。** 不改主请求输出上限、思考档位、provider/model 选择或 token 计量。
 
-只接管精确钉住的官方 Basic 实现；跳过自定义 backend、子类及带有实例方法覆盖的引擎。没有 compaction 的预设（包括不带压缩的 minimal 组合）不受影响。“全局”不表示机器上所有 DSH 进程或 profile。
+只接管指纹验证通过的官方 Basic 实现；跳过自定义 backend、子类及带有实例方法覆盖的引擎。没有 compaction 的预设（包括不带压缩的 minimal 组合）不受影响。“全局”不表示机器上所有 DSH 进程或 profile。
 
 ## 默认策略：90%，不重复扣余量
 
@@ -51,10 +51,10 @@
 
 ## 安装
 
-通过 GitHub 分发，尚未发布 npm 包。安装 **v0.2.1 发布标签**：
+通过 GitHub 分发，尚未发布 npm 包。安装 **v0.2.2 发布标签**：
 
 ```text
-github:huohua-dev/dsh-compaction-policy#v0.2.1
+github:huohua-dev/dsh-compaction-policy#v0.2.2
 ```
 
 ### Desktop 管理的 profile
@@ -68,7 +68,7 @@ github:huohua-dev/dsh-compaction-policy#v0.2.1
 如果 web profile **不由 Electron／Desktop 管理**，才使用：
 
 ```sh
-dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.1
+dsh plugin --profile web add github:huohua-dev/dsh-compaction-policy#v0.2.2
 ```
 
 然后重新加载／重启该现有宿主。这个 CLI 示例不是 Desktop 的替代安装方式。
@@ -129,9 +129,11 @@ provider/model 精确匹配、区分大小写。不使用这类按路由启用�
 
 `status` 提供覆盖情况与主动策略诊断，不输出会话原文。`reset` 只清理当前会话的主动失败保护，不压缩、不重写历史、不改模型。手动压缩仍使用原生 `/compact`。有缩减但仍超阈值时报告 `compacted-still-above-threshold`，不会谎报已回到预算内。失败状态按 live session 保存在内存，重启后不保留。
 
+宿主升级后也可先看 `status`：`enabled: true` 表示已验证指纹仍一致。若未来宿主真的改动了某个已验证方法，插件仍会加载、记录警告，并以 `enabled: false`、原因 `unsupported-host` 报告，原生 Basic 不受影响地继续工作；等有经审查的新插件版本再更新即可。维护者可对新宿主运行 `npm run compat:host` 查看完整指纹报告（见 CONTRIBUTING）。
+
 卸载运行中的全局策略时，先将其标记为**不活跃**，再等待正在执行的工作完成，安全恢复原方法。不覆盖其他插件的 wrapper：若其他插件已包装被修改的方法，本插件的 wrapper 会**保持惰性，直到可安全恢复或重启**。禁用不会强制重新绑定运行中的 agent。
 
-## 升级到 v0.2.1
+## 从旧测试版本升级
 
 旧测试预设 `compaction-policy` 不再注册。新版**不提供旧会话恢复兼容**，之前的测试会话不属于支持的升级目标。本包不会删除或重写会话日志。
 
@@ -157,7 +159,7 @@ provider/model 精确匹配、区分大小写。不使用这类按路由启用�
 
 摘要质量和服务端容量仍取决于模型／上游。计量采用宿主估算；插件不篡改 token 计数，不降低主请求思考，不新增压缩服务，不包装全局 `fetch`，不补丁修改 ASAR，也不另带 DSH 内核。宿主插件拥有宿主权限，**模型工具审批不会沙箱化插件代码**。
 
-版本和五方法哈希固定是安全门槛，不代表向前兼容承诺。升级宿主需要重新审查和测试，不能只放宽版本范围。真实宿主合成测试不能证明实际 UI 或原生 Windows 摘要质量。
+兼容性分两层：声明的 DSH 范围只决定 bundle 能否加载，因此 0.2.x 宿主线内的 rc／补丁升级不再需要插件跟着改版本号；五方法指纹决定策略能否启用，它是刻意的安全门槛，不承诺支持已变化的上游内部实现。指纹一旦不一致，策略会安全退回原生行为，上游新接缝必须重新阅读和测试后才可刷新指纹，不能盲目放宽或重录。真实宿主合成测试不能证明实际 UI 或原生 Windows 摘要质量。
 
 ```sh
 npm test

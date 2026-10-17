@@ -7,12 +7,12 @@ import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner';
 import { BasicCompactionEngine as Basic } from '@deepseek-ai/dsh-compaction-basic';
 import { toolPairingBalancedBefore, toolPairingBalancedAfter } from '@deepseek-ai/dsh-compaction';
 import { createPolicyEngine } from '../src/engine.js';
-import { installGlobalAdapter as install, RC2_METHOD_HASHES, GLOBAL_DEFAULTS } from '../src/global-adapter.js';
-import GlobalPlugin from '../src/global.js';
+import { installGlobalAdapter as install, VERIFIED_BASIC_METHOD_HASHES, GLOBAL_DEFAULTS } from '../src/global-adapter.js';
+import GlobalPlugin, { HOST_VERSIONS } from '../src/global.js';
 
 const original = Basic.prototype.compactIfNeeded;
 const originalDescriptor = Object.getOwnPropertyDescriptor(Basic.prototype, 'compactIfNeeded');
-const inputs = { BasicCompactionEngine: Basic, toolPairingBalancedBefore, toolPairingBalancedAfter, expectedHashes: RC2_METHOD_HASHES };
+const inputs = { BasicCompactionEngine: Basic, toolPairingBalancedBefore, toolPairingBalancedAfter, expectedHashes: VERIFIED_BASIC_METHOD_HASHES };
 const config = { ...GLOBAL_DEFAULTS, retainTokens: 0 };
 const events = (s, type) => s.snapshotEvents().filter(e => e.type === type);
 function fixture({ Engine = Basic, isPolicy = false, auto = true, words = 120000, ctx = new Context() } = {}) {
@@ -145,7 +145,7 @@ test('stock auto:false and manual method remain untouched', async () => {
 
 test('duplicate installation, pin mismatch, unknown wrapper fail closed', async () => {
   const f = fixture();
-  assert.throws(() => install({ ...inputs, ctx: f.ctx, policy: config, expectedHashes: { ...RC2_METHOD_HASHES, compactIfNeeded: 'wrong' } }), /differs from/);
+  assert.throws(() => install({ ...inputs, ctx: f.ctx, policy: config, expectedHashes: { ...VERIFIED_BASIC_METHOD_HASHES, compactIfNeeded: 'wrong' } }), /differs from/);
   const installed = enable(f);
   try { assert.throws(() => enable(f), /already installed/); } finally { await installed.dispose(); }
   function foreign(...args) { return original.apply(this, args); }
@@ -342,6 +342,36 @@ test('actual Cordis plugin activation and disposal preserve service identity and
     assert.equal(reset.kind, 'success');
     assert.equal(JSON.parse(reset.text).reason, 'retry-guard-reset');
   } finally { await fiber.dispose(); }
+  assert.equal(commands.length, 0);
+  assert.equal(Basic.prototype.compactIfNeeded, original);
+});
+
+test('actual Cordis plugin stays loaded but inert when Basic fingerprints drift', async () => {
+  // Future host upgrades that really move a seam must degrade to stock
+  // compaction with a diagnosable status, not fail plugin startup.
+  const f = fixture({ words: 50000 }); const commands = [];
+  f.ctx.provide('commands', { register(command) { commands.push(command); return () => commands.splice(commands.indexOf(command), 1); } });
+  f.ctx.provide('agentPresets', { serviceFor() { throw new Error('disabled status must not need an engine'); } });
+  const summarize = Basic.prototype.summarize;
+  Basic.prototype.summarize = async () => 'foreign';
+  let fiber;
+  try {
+    fiber = f.ctx.plugin(GlobalPlugin, {});
+    await fiber;
+    assert.equal(Basic.prototype.compactIfNeeded, original);
+    assert.equal(commands.length, 1);
+    const response = commands[0].handler({ agent: f.agent, rawInput: 'status' });
+    assert.equal(response.kind, 'success');
+    const status = JSON.parse(response.text);
+    assert.equal(status.enabled, false);
+    assert.equal(status.reason, 'unsupported-host');
+    assert.match(status.message, /summarize differs from the verified host/);
+    assert.deepEqual(status.hostVersions, HOST_VERSIONS);
+    assert.equal(commands[0].handler({ agent: f.agent, rawInput: 'reset' }).kind, 'success');
+  } finally {
+    if (fiber) await fiber.dispose();
+    Basic.prototype.summarize = summarize;
+  }
   assert.equal(commands.length, 0);
   assert.equal(Basic.prototype.compactIfNeeded, original);
 });

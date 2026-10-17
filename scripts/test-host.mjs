@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { DSH_RANGE } from '../src/host-version.js';
 if (!process.env.DSH_HOST_ROOT) {
-  console.error('Set DSH_HOST_ROOT to an installed DSH 0.2.1-rc.1 runtime root. See CONTRIBUTING.md. No host is installed automatically.');
+  console.error(`Set DSH_HOST_ROOT to an installed DSH runtime root in range ${DSH_RANGE}. See CONTRIBUTING.md. No host is installed automatically. Run npm run compat:host for a quick fingerprint report first if unsure.`);
   process.exit(2);
 }
 if (process.env.DSH_HOST_ROOT.includes('.asar/') && !process.versions.electron) {

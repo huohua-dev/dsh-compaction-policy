@@ -2,7 +2,7 @@ import { readdir, readFile, access } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { COMPACTION_VERSION } from '../src/host-version.js';
+import { CORDIS_RANGE, DSH_RANGE } from '../src/host-version.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 for (const file of pkg.files) await access(join(root, file));
@@ -26,11 +26,18 @@ if ((patch.match(/\bname:/g) ?? []).length !== 1 || /legacy|\/preset|Compaction 
   || pkg.exports['./legacy'] || pkg.exports['./preset']) {
   throw new Error('Bundle must contain exactly one global component and no compatibility preset');
 }
+// The host treats engines.dsh as the sole manifest compatibility gate and
+// evaluates it with prereleases included. It must stay a *range*: an exact
+// host build here is what turned every DSH rc bump into an incompatibility
+// error before any plugin code could run. The method fingerprints remain
+// the activation contract inside that range.
+if (pkg.engines?.dsh !== DSH_RANGE || !DSH_RANGE.startsWith('^')) {
+  throw new Error(`engines.dsh must be the shared non-exact host range (${DSH_RANGE}).`);
+}
 for (const name of ['@deepseek-ai/dsh-compaction-basic', '@deepseek-ai/dsh-compaction', '@deepseek-ai/dsh-agent-preset-registry']) {
-  if (pkg.peerDependencies[name] !== COMPACTION_VERSION) throw new Error('Update compatibility tests before changing host range.');
+  if (pkg.peerDependencies[name] !== DSH_RANGE) throw new Error(`Peer ${name} must use the shared host range (${DSH_RANGE}), not an exact build.`);
 }
-// Cordis is admitted per 4.0.x patch line; the method-hash gate stays the real contract.
-if (!/^\^?~?4\.0\./.test(pkg.peerDependencies['@deepseek-ai/cordis'] ?? '')) {
-  throw new Error('Cordis must stay pinned to the 4.0.x patch line.');
+if (pkg.peerDependencies['@deepseek-ai/cordis'] !== CORDIS_RANGE) {
+  throw new Error(`Cordis must stay on the shared 4.0.x patch range (${CORDIS_RANGE}).`);
 }
-console.log('Syntax, package inventory, host pins, and single-global bundle checks passed.');
+console.log('Syntax, package inventory, host ranges, and single-global bundle checks passed.');

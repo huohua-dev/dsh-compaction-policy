@@ -1,6 +1,6 @@
 {
   "name": "dsh-compaction-policy",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Global 90% native compaction for DeepSeek Harness: summary-first pressure and reversible integration without extra presets.",
   "type": "module",
   "license": "MIT",
@@ -19,13 +19,13 @@
     "./package.json": "./package.json"
   },
   "files": ["src", "scripts", "test", "cordis.patch.yml", "README.md", "README.zh-CN.md", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", "NOTICE.md", "LICENSE"],
-  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "engines": { "node": "^22.19.0 || >=24.0.0", "dsh": "^0.2.1-rc.1" },
   "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
   "peerDependencies": {
-    "@deepseek-ai/dsh-compaction-basic": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-compaction": "0.2.1-rc.1",
-    "@deepseek-ai/dsh-agent-preset-registry": "0.2.1-rc.1",
-    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-compaction-basic": "^0.2.1-rc.1",
+    "@deepseek-ai/dsh-compaction": "^0.2.1-rc.1",
+    "@deepseek-ai/dsh-agent-preset-registry": "^0.2.1-rc.1",
+    "@deepseek-ai/cordis": "~4.0.4",
     "@deepseek-ai/schemastery": "~3.18.4"
   },
   "peerDependenciesMeta": {
@@ -38,6 +38,7 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "test:host": "node scripts/test-host.mjs",
+    "compat:host": "node scripts/check-host.mjs",
     "check": "node scripts/check.mjs",
     "pack:check": "npm pack --dry-run --ignore-scripts",
     "prepublishOnly": "npm run check && npm test"

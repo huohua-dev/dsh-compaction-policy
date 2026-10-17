@@ -4,7 +4,7 @@ A DSH host plugin runs with the privileges of its host process. Model-facing too
 
 This package:
 
-- applies a version- and method-fingerprint-pinned, reversible pressure-method adapter to existing official Basic engines in its runtime;
+- applies a range-admitted, method-fingerprint-verified, reversible pressure-method adapter to existing official Basic engines in its runtime;
 - registers a global status/reset command, but no presets or compatibility compositions;
 - does not filter the preset registry, read preset YAML, or translate/rewrite session identities;
 - uses the existing LLM and session services for ordinary official compaction;
@@ -18,7 +18,7 @@ Known constraints:
 
 - The host's token meter is approximate; capped reservation cannot guarantee admission by every provider.
 - The plugin's cooldown is proactive only. Manual and provider-confirmed overflow recovery can perform compaction during a proactive cooldown or dry run.
-- The plugin is explicitly pinned to DSH 0.2.1-rc.1 (Cordis 4.0.x); an untested host is refused. Re-verify the five method hashes before widening either range.
+- The bundle load-admits DSH `^0.2.1-rc.1` (Cordis 4.0.x), but the policy activates only on the five verified Basic method fingerprints. An unrecognized host implementation leaves the default global plugin inert on stock compaction rather than adapting blindly; the opt-in root backend still refuses loudly. Re-read and re-test the upstream seam before refreshing a fingerprint or widening a range.
 - The current test evidence covers core contracts with a scripted model, not live-model quality or a full GUI installation.
 
 Do not include credentials, complete conversation logs or private source code in public bug reports. For a vulnerability, use GitHub private vulnerability reporting if available, otherwise ask the maintainer for a private channel before sharing exploit details. Do not open a public issue containing secrets.
